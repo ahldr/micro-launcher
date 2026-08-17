@@ -21,6 +21,18 @@ import de.jrpie.android.launcher.apps.PinnedShortcutInfo
 import de.jrpie.android.launcher.getUserFromId
 import de.jrpie.android.launcher.preferences.LauncherPreferences
 
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.LayoutInflater
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import de.jrpie.android.launcher.icons.IconEntry
+import de.jrpie.android.launcher.icons.IconPackManager
+
 private const val LOG_TAG = "AppContextMenu"
 
 fun AppInfo.openSettings(
@@ -108,6 +120,86 @@ fun AbstractDetailedAppInfo.showRenameDialog(context: Context) {
         input?.setText(getCustomLabel(context))
         input?.hint = getLabel()
     }
+}
+
+private class IconPickerViewHolder(v: View) : RecyclerView.ViewHolder(v) {
+    val image: ImageView = v.findViewById(R.id.dialog_custom_icon_image)
+    val name: TextView = v.findViewById(R.id.dialog_custom_icon_name)
+}
+
+private class IconPickerAdapter(
+    private var items: List<IconEntry>,
+    private val iconManager: IconPackManager,
+    private val onItemClick: (IconEntry) -> Unit
+) : RecyclerView.Adapter<IconPickerViewHolder>() {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): IconPickerViewHolder {
+        val v = LayoutInflater.from(parent.context).inflate(R.layout.dialog_custom_icon_item, parent, false)
+        return IconPickerViewHolder(v)
+    }
+
+    override fun onBindViewHolder(holder: IconPickerViewHolder, position: Int) {
+        val item = items[position]
+        holder.name.text = item.label
+        val drawable = iconManager.getDrawableByName(item.drawableName)
+        holder.image.setImageDrawable(drawable)
+
+        holder.itemView.setOnClickListener {
+            onItemClick(item)
+        }
+    }
+
+    override fun getItemCount() = items.size
+
+    fun update(newItems: List<IconEntry>) {
+        items = newItems
+        notifyDataSetChanged()
+    }
+}
+
+fun AbstractDetailedAppInfo.showCustomIconPickerDialog(context: Context) {
+    val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_custom_icon_picker, null)
+    val searchEdit = dialogView.findViewById<EditText>(R.id.dialog_custom_icon_search)
+    val recycler = dialogView.findViewById<RecyclerView>(R.id.dialog_custom_icon_recycler)
+    val resetButton = dialogView.findViewById<Button>(R.id.dialog_custom_icon_reset)
+
+    recycler.layoutManager = GridLayoutManager(context, 4)
+
+    val iconManager = IconPackManager.getInstance(context)
+    val allIcons = iconManager.getAvailableIcons(context)
+
+    val dialog = AlertDialog.Builder(context, R.style.AlertDialogCustom)
+        .setTitle(R.string.dialog_custom_icon_picker_title)
+        .setView(dialogView)
+        .setNegativeButton(android.R.string.cancel, null)
+        .create()
+
+    val adapter = IconPickerAdapter(allIcons, iconManager) { item ->
+        setCustomIcon(item.componentNameStr)
+        dialog.dismiss()
+    }
+    recycler.adapter = adapter
+
+    searchEdit.addTextChangedListener(object : TextWatcher {
+        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+            val query = s?.toString()?.lowercase() ?: ""
+            val filtered = if (query.isEmpty()) {
+                allIcons
+            } else {
+                allIcons.filter { it.label.lowercase().contains(query) || it.drawableName.lowercase().contains(query) }
+            }
+            adapter.update(filtered)
+        }
+        override fun afterTextChanged(s: Editable?) {}
+    })
+
+    resetButton.setOnClickListener {
+        setCustomIcon(null)
+        dialog.dismiss()
+    }
+
+    dialog.show()
 }
 
 

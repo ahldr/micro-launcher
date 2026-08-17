@@ -14,6 +14,10 @@
             android:key="@string/settings_theme_wallpaper_key"
             android:title="@string/settings_theme_wallpaper" />
         <DropDownPreference
+            android:key="@string/settings_theme_icon_pack_key"
+            android:title="@string/settings_theme_icon_pack"
+            app:useSimpleSummaryProvider="true" />
+        <DropDownPreference
             android:entries="@array/settings_theme_color_theme_items"
             android:entryValues="@array/settings_theme_color_theme_values"
             android:defaultValue="DEFAULT"

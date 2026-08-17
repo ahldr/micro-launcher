@@ -13,6 +13,9 @@
         android:id="@+id/app_menu_rename"
         android:title="@string/list_app_rename" />
     <item
+        android:id="@+id/app_menu_change_icon"
+        android:title="@string/list_app_change_icon" />
+    <item
         android:id="@+id/app_menu_delete"
         android:title="@string/list_app_delete" />
 </menu>

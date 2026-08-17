@@ -167,6 +167,10 @@ class AppsRecyclerAdapter(
                     appInfo.showRenameDialog(activity); true
                 }
 
+                R.id.app_menu_change_icon -> {
+                    appInfo.showCustomIconPickerDialog(activity); true
+                }
+
                 else -> false
             }
         }

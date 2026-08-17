@@ -83,6 +83,22 @@ class SettingsFragmentLauncher : PreferenceFragmentCompat() {
             true
         }
 
+        findPreference<androidx.preference.DropDownPreference>(
+            LauncherPreferences.theme().keys().iconPack()
+        )?.apply {
+            val iconPackManager = de.jrpie.android.launcher.icons.IconPackManager.getInstance(requireContext())
+            iconPackManager.loadAvailablePacks()
+            val packs = iconPackManager.availablePacks
+            val defaultName = "System Default"
+            
+            val entryList = mutableListOf(defaultName)
+            entryList.addAll(packs.values)
+            entries = entryList.toTypedArray()
+            
+            val valueList = mutableListOf("")
+            valueList.addAll(packs.keys)
+            entryValues = valueList.toTypedArray()
+        }
         val manageWidgets = findPreference<androidx.preference.Preference>(
             LauncherPreferences.widgets().keys().widgets()
         )

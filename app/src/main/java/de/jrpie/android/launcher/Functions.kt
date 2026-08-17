@@ -183,7 +183,7 @@ fun getApps(
         }
         try {
             launcherApps.getActivityList(null, user).forEach {
-                loadList.add(DetailedAppInfo(it, it.user == privateSpaceUser))
+                loadList.add(DetailedAppInfo(it, it.user == privateSpaceUser, context))
             }
         } catch (e: Exception) {
             // getActivityList seems to be broken on some Android distributions.
@@ -207,10 +207,12 @@ fun getApps(
         }
         for (ri in allApps) {
             val app = AppInfo(ri.activityInfo.packageName, null, INVALID_USER)
+            val iconManager = de.jrpie.android.launcher.icons.IconPackManager.getInstance(context)
+            val icon = iconManager.getIcon(android.content.ComponentName(ri.activityInfo.packageName, ri.activityInfo.name)) ?: ri.activityInfo.loadIcon(packageManager)
             val detailedAppInfo = DetailedAppInfo(
                 app,
                 ri.loadLabel(packageManager),
-                ri.activityInfo.loadIcon(packageManager),
+                icon,
                 false
             )
             loadList.add(detailedAppInfo)
