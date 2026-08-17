@@ -42,7 +42,8 @@ fun setWindowFlags(window: Window, homeScreen: Boolean) {
 
     if (!homeScreen) {
         LauncherPreferences.theme().background().applyToWindow(window)
-
+    } else {
+        window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
     }
 
 }
