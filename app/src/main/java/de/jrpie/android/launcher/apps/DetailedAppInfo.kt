@@ -7,6 +7,7 @@ import android.graphics.drawable.Drawable
 import android.os.UserHandle
 import de.jrpie.android.launcher.actions.Action
 import de.jrpie.android.launcher.actions.AppAction
+import de.jrpie.android.launcher.icons.IconPackManager
 import de.jrpie.android.launcher.getUserFromId
 
 /**
@@ -20,14 +21,21 @@ class DetailedAppInfo(
     private val removable: Boolean = true,
 ) : AbstractDetailedAppInfo {
 
-    constructor(activityInfo: LauncherActivityInfo, private: Boolean) : this(
+    constructor(activityInfo: LauncherActivityInfo, private: Boolean, context: Context) : this(
         AppInfo(
             activityInfo.applicationInfo.packageName,
             activityInfo.name,
             activityInfo.user.hashCode()
         ),
         activityInfo.label,
-        activityInfo.getBadgedIcon(0),
+        IconPackManager.getInstance(context).getIcon(
+            AppInfo(
+                activityInfo.applicationInfo.packageName,
+                activityInfo.name,
+                activityInfo.user.hashCode()
+            ),
+            activityInfo.componentName
+        ) ?: activityInfo.getBadgedIcon(0),
         private,
         // App can be uninstalled iff it is not a system app
         activityInfo.applicationInfo.flags.and(ApplicationInfo.FLAG_SYSTEM) == 0
@@ -66,7 +74,7 @@ class DetailedAppInfo(
     companion object {
         fun fromAppInfo(appInfo: AppInfo, context: Context): DetailedAppInfo? {
             return appInfo.getLauncherActivityInfo(context)?.let {
-                DetailedAppInfo(it, it.user == getPrivateSpaceUser(context))
+                DetailedAppInfo(it, it.user == getPrivateSpaceUser(context), context)
             }
         }
     }

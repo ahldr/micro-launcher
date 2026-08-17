@@ -106,6 +106,10 @@ class Application : android.app.Application() {
             customAppNames = LauncherPreferences.apps().customNames()
         } else if (pref == LauncherPreferences.apps().keys().pinnedShortcuts()) {
             loadApps()
+        } else if (pref == LauncherPreferences.theme().keys().iconPack() ||
+            pref == getString(R.string.settings_apps_custom_icons_key)) {
+            de.jrpie.android.launcher.icons.IconPackManager.getInstance(this).clearCache()
+            loadApps()
         }
 
         if (pref?.startsWith("theme.") == true || pref?.startsWith("display.") == true) {

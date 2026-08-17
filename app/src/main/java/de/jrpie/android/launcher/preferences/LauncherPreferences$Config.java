@@ -36,6 +36,7 @@ import eu.jonahbauer.android.preference.annotations.Preferences;
                         @Preference(name = "hidden", type = Set.class, serializer = SetAbstractAppInfoPreferenceSerializer.class),
                         @Preference(name = "pinned_shortcuts", type = Set.class, serializer = SetPinnedShortcutInfoPreferenceSerializer.class),
                         @Preference(name = "custom_names", type = HashMap.class, serializer = MapAbstractAppInfoStringPreferenceSerializer.class),
+                        @Preference(name = "custom_icons", type = HashMap.class, serializer = MapAbstractAppInfoStringPreferenceSerializer.class),
                         @Preference(name = "hide_bound_apps", type = boolean.class, defaultValue = "false"),
                         @Preference(name = "hide_paused_apps", type = boolean.class, defaultValue = "false"),
                         @Preference(name = "hide_private_space_apps", type = boolean.class, defaultValue = "false"),
@@ -52,6 +53,7 @@ import eu.jonahbauer.android.preference.annotations.Preferences;
                         @Preference(name = "choose_home_screen", type = void.class)
                 }),
                 @PreferenceGroup(name = "theme", prefix = "settings_theme_", suffix = "_key", value = {
+                        @Preference(name = "icon_pack", type = String.class),
                         @Preference(name = "wallpaper", type = void.class),
                         @Preference(name = "color_theme", type = ColorTheme.class, defaultValue = "DEFAULT"),
                         @Preference(name = "background", type = Background.class, defaultValue = "DIM"),

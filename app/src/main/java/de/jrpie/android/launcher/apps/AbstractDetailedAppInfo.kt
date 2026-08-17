@@ -39,4 +39,21 @@ sealed interface AbstractDetailedAppInfo {
         LauncherPreferences.apps().customNames(map)
     }
 
+    fun getCustomIcon(context: Context): String? {
+        val map = LauncherPreferences.apps().customIcons()
+        return map?.get(getRawInfo())
+    }
+
+    fun setCustomIcon(iconComponent: String?) {
+        Log.i("Launcher", "Setting custom icon for ${this.getRawInfo()} to ${iconComponent}.")
+        val map = LauncherPreferences.apps().customIcons() ?: HashMap<AbstractAppInfo, String>()
+
+        if (iconComponent.isNullOrEmpty()) {
+            map.remove(getRawInfo())
+        } else {
+            map[getRawInfo()] = iconComponent
+        }
+        LauncherPreferences.apps().customIcons(map)
+    }
+
 }
