@@ -42,6 +42,7 @@ import eu.jonahbauer.android.preference.annotations.Preferences;
                 }),
                 @PreferenceGroup(name = "list", prefix = "settings_list_", suffix = "_key", value = {
                         @Preference(name = "layout", type = ListLayout.class, defaultValue = "DEFAULT"),
+                        @Preference(name = "grid_columns", type = int.class, defaultValue = "0"),
                         @Preference(name = "reverse_layout", type = boolean.class, defaultValue = "false"),
                         @Preference(name = "app_name_format", type = AppNameFormat.class, defaultValue = "DEFAULT")
                 }),

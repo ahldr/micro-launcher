@@ -50,8 +50,15 @@ enum class ListLayout(
 }
 
 private fun getNumColumns(context: Context, columnWidthSP: Float = 90f): Int {
+    val configured = try {
+        de.jrpie.android.launcher.preferences.LauncherPreferences.list().gridColumns()
+    } catch (e: Exception) { 0 }
+    if (configured > 0) {
+        return configured
+    }
+
     val displayMetrics = context.resources.displayMetrics
     val widthColumnPx =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, columnWidthSP, displayMetrics)
-    return (displayMetrics.widthPixels / widthColumnPx).toInt()
+    return (displayMetrics.widthPixels / widthColumnPx).toInt().coerceAtLeast(1)
 }

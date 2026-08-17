@@ -181,6 +181,13 @@
             android:entryValues="@array/settings_list_layout_values"
             android:defaultValue="DEFAULT"
             app:useSimpleSummaryProvider="true" />
+        <SeekBarPreference
+            android:key="@string/settings_list_grid_columns_key"
+            android:title="@string/settings_list_grid_columns"
+            android:defaultValue="0"
+            app:min="0"
+            android:max="10"
+            app:showSeekBarValue="true" />
         <DropDownPreference
             android:key="list.app_name_format"
             android:title="@string/settings_list_app_name_format"

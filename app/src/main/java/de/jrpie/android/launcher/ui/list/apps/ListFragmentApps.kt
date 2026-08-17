@@ -33,8 +33,13 @@ class ListFragmentApps : Fragment(), UIObject {
 
 
     private var sharedPreferencesListener =
-        SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        SharedPreferences.OnSharedPreferenceChangeListener { _, pref ->
             appsRecyclerAdapter.updateAppsList()
+            if (pref == LauncherPreferences.list().keys().gridColumns() || pref == LauncherPreferences.list().keys().layout()) {
+                binding.listAppsRview.layoutManager?.let {
+                    LauncherPreferences.list().layout().updateLayoutManager(requireContext(), it)
+                }
+            }
         }
 
     override fun onCreateView(
