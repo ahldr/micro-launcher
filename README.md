@@ -1,3 +1,10 @@
+!! This has been modified by LLMs, DO NOT TRUST THESE MODIFICATIONS I HAVE NOT AUDITED THEM THAT CLOSELY !!
+
+Fork that adds:
+ - Customisable grid columns
+ - Custom icon packs
+ - Attempts to fix the black-wallpaper bug
+
 <!-- Shields from shields.io -->
 [![][shield-release]][latest-release]
 [![Android CI](https://github.com/jrpie/Launcher/actions/workflows/android.yml/badge.svg)](https://github.com/jrpie/Launcher/actions/workflows/android.yml)
