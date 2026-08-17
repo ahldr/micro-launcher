@@ -34,7 +34,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "de.jrpie.android.launcher"
+        applicationId = "net.ahldr.microlauncher"
         minSdk = 21
         targetSdk = 36
         versionCode = 57
@@ -54,6 +54,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
