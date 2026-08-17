@@ -127,6 +127,7 @@
     <string name="settings_launcher_section_appearance">Appearance</string>
 
 
+    <string name="settings_list_grid_columns">Grid columns (0 for auto)</string>
     <string name="settings_theme_color_theme">Color theme</string>
     <string name="settings_theme_color_theme_item_default">Default</string>
     <string name="settings_theme_color_theme_item_dark">Dark</string>
