@@ -26,6 +26,12 @@ enum class Background(val id: Int, val dim: Boolean = false, val blur: Boolean =
     }
 
     fun applyToWindow(window: Window) {
+        if (this != SOLID) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
+        }
+
         val layoutParams: WindowManager.LayoutParams = window.attributes
         // TODO: add a setting to change this?
         var dimAmount = 0.7f
