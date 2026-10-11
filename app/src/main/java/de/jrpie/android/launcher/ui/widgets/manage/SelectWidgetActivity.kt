@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.widget.SearchView
@@ -75,7 +76,14 @@ class SelectWidgetActivity : UIObjectActivity() {
                 updateWidget(
                     ClockWidget(
                         generateInternalId(),
-                        WidgetPosition(0, 4, 12, 3),
+                        WidgetPosition.findFreeSpace(
+                            WidgetPanel.byId(widgetPanelId),
+                            12,
+                            3
+                        ) {
+                            Toast.makeText(this, R.string.widget_no_free_space, Toast.LENGTH_LONG)
+                                .show()
+                        },
                         widgetPanelId
                     )
                 )

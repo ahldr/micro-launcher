@@ -434,6 +434,8 @@
     <string name="widget_menu_raise">Raise</string>
     <string name="widget_menu_lower">Lower</string>
     <string name="widget_overlay_interaction_disabled">Interaction off</string>
+    <string name="widget_overlay_unavailable">Widget unavailable</string>
+    <string name="widget_no_free_space">No free space on this panel; placed on top</string>
 
 
     <string name="widget_clock_label">Clock</string>

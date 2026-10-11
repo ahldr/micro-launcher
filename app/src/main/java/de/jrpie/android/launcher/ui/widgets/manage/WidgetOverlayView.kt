@@ -105,6 +105,26 @@ class WidgetOverlayView : ViewGroup {
         }
 
     /**
+     * True if the widget has no view (e.g. its app was uninstalled),
+     * then a placeholder with [unavailablePackage] is shown.
+     */
+    var unavailable = false
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
+    var unavailablePackage: String? = null
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
+    private val unavailableString = context.getString(R.string.widget_overlay_unavailable)
+
+    /**
      * Refreshes the state shown by this overlay after [widget] was changed.
      */
     fun update(widget: Widget) {
@@ -128,7 +148,16 @@ class WidgetOverlayView : ViewGroup {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        if (interactionDisabled) {
+        if (unavailable) {
+            val x = (width / 2).toFloat()
+            val y = (height - interactionDisabledOverlayTextPaint.descent() -
+                    interactionDisabledOverlayTextPaint.ascent()) / 2
+            canvas.drawText(unavailableString, x, y, interactionDisabledOverlayTextPaint)
+            unavailablePackage?.let {
+                val lineHeight = interactionDisabledOverlayTextPaint.fontSpacing
+                canvas.drawText(it, x, y + lineHeight, interactionDisabledOverlayTextPaint)
+            }
+        } else if (interactionDisabled) {
             canvas.drawRoundRect(
                 this.getBounds().toRectF(),
                 5f,
@@ -193,8 +222,7 @@ class WidgetOverlayView : ViewGroup {
                 it.add(
                     context.getString(R.string.widget_menu_reconfigure)
                 ).setOnMenuItemClickListener { _ ->
-                    // TODO: use real request code
-                    widget.configure(context as Activity, 100)
+                    widget.configure(context as Activity, REQUEST_RECONFIGURE_APPWIDGET)
                     return@setOnMenuItemClickListener true
 
                 }
