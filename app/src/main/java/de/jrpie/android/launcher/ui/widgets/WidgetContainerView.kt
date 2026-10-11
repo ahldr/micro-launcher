@@ -30,22 +30,64 @@ open class WidgetContainerView(
 
     var widgetViewById = HashMap<Int, View>()
 
+    /**
+     * Brings the views of this panel in sync with [widgets].
+     *
+     * Views of widgets that still exist are kept (they are only moved or re-ordered),
+     * so app widgets don't flash their loading layout and keep their internal state.
+     * [Widget.createView] is only called for widgets that don't have a view yet.
+     */
     open fun updateWidgets(activity: Activity, widgets: Collection<Widget>?) {
         synchronized(widgetViewById) {
             if (widgets == null) {
                 return
             }
             Log.i("WidgetContainer", "updating ${activity.localClassName}")
-            widgetViewById.forEach { removeView(it.value) }
-            widgetViewById.clear()
-            widgets.filter { it.panelId == widgetPanelId }
-                .sortedBy { it.position.zIndex ?: 0 }
-                .forEach { widget ->
+            val target = widgets.filter { it.panelId == widgetPanelId }
+            val targetIds = target.mapTo(HashSet()) { it.id }
+
+            // remove views of widgets which no longer exist on this panel
+            widgetViewById.keys.filter { it !in targetIds }.forEach { id ->
+                widgetViewById.remove(id)?.let { removeView(it) }
+            }
+
+            target.forEach { widget ->
+                val view = widgetViewById[widget.id]
+                if (view != null) {
+                    val layoutParams = view.layoutParams as LayoutParams
+                    if (layoutParams.position != widget.position) {
+                        layoutParams.position = widget.position
+                    }
+                } else {
+                    Log.i("WidgetContainer", "creating view for widget ${widget.id}")
                     widget.createView(activity)?.let {
                         addView(it, LayoutParams(widget.position))
                         widgetViewById[widget.id] = it
                     }
                 }
+            }
+
+            // Order by zIndex. Ties keep their current order, new views go on top.
+            val widgetViews = target
+                .mapNotNull { widget -> widgetViewById[widget.id]?.let { Pair(widget, it) } }
+                .sortedWith(compareBy({ it.first.position.zIndex?.toInt() ?: 0 }, { indexOfChild(it.second) }))
+                .map { it.second }
+            ensureChildOrder(widgetViews)
+
+            requestLayout()
+        }
+    }
+
+    /**
+     * Makes sure that [views] appear in the given order among the children of this container.
+     * Children are only re-ordered if the order actually changed.
+     * Re-ordering does not detach the views, hence widgets keep their state.
+     */
+    protected fun ensureChildOrder(views: List<View>) {
+        val viewSet = views.toHashSet()
+        val currentOrder = (0..<childCount).map { getChildAt(it) }.filter { it in viewSet }
+        if (currentOrder != views) {
+            views.forEach { bringChildToFront(it) }
         }
     }
 
