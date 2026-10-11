@@ -13,10 +13,20 @@
         android:inputType="text"
         android:importantForAutofill="no" />
 
+    <ProgressBar
+        android:id="@+id/dialog_custom_icon_progress"
+        style="?android:attr/progressBarStyle"
+        android:layout_width="match_parent"
+        android:layout_height="300dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
+        android:indeterminate="true" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/dialog_custom_icon_recycler"
         android:layout_width="match_parent"
         android:layout_height="300dp"
+        android:visibility="gone"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp" />
 

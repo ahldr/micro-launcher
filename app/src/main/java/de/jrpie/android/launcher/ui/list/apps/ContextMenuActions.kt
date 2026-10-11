@@ -30,8 +30,16 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
 import de.jrpie.android.launcher.icons.IconEntry
 import de.jrpie.android.launcher.icons.IconPackManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val LOG_TAG = "AppContextMenu"
 
@@ -161,12 +169,12 @@ fun AbstractDetailedAppInfo.showCustomIconPickerDialog(context: Context) {
     val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_custom_icon_picker, null)
     val searchEdit = dialogView.findViewById<EditText>(R.id.dialog_custom_icon_search)
     val recycler = dialogView.findViewById<RecyclerView>(R.id.dialog_custom_icon_recycler)
+    val progress = dialogView.findViewById<View>(R.id.dialog_custom_icon_progress)
     val resetButton = dialogView.findViewById<Button>(R.id.dialog_custom_icon_reset)
 
     recycler.layoutManager = GridLayoutManager(context, 4)
 
     val iconManager = IconPackManager.getInstance(context)
-    val allIcons = iconManager.getAvailableIcons(context)
 
     val dialog = AlertDialog.Builder(context, R.style.AlertDialogCustom)
         .setTitle(R.string.dialog_custom_icon_picker_title)
@@ -174,22 +182,49 @@ fun AbstractDetailedAppInfo.showCustomIconPickerDialog(context: Context) {
         .setNegativeButton(android.R.string.cancel, null)
         .create()
 
-    val adapter = IconPickerAdapter(allIcons, iconManager) { item ->
+    // Use the lifecycle scope if possible, otherwise a scope that is cancelled on dismiss.
+    val lifecycleScope = (context as? LifecycleOwner)?.lifecycleScope
+    val fallbackScope =
+        if (lifecycleScope == null) CoroutineScope(SupervisorJob() + Dispatchers.Main) else null
+    val scope = lifecycleScope ?: fallbackScope!!
+    var loadJob: Job? = null
+    var filterJob: Job? = null
+
+    dialog.setOnDismissListener {
+        loadJob?.cancel()
+        filterJob?.cancel()
+        fallbackScope?.cancel()
+    }
+
+    // Filled once the icons have been loaded.
+    var allIcons: List<IconEntry> = emptyList()
+
+    val adapter = IconPickerAdapter(emptyList(), iconManager) { item ->
         setCustomIcon(item.componentNameStr)
         dialog.dismiss()
     }
     recycler.adapter = adapter
 
+    fun applyFilter() {
+        val query = searchEdit.text?.toString()?.lowercase() ?: ""
+        val icons = allIcons
+        filterJob?.cancel()
+        if (query.isEmpty()) {
+            adapter.update(icons)
+            return
+        }
+        filterJob = scope.launch {
+            val filtered = withContext(Dispatchers.Default) {
+                icons.filter { it.labelKey.contains(query) || it.drawableNameKey.contains(query) }
+            }
+            adapter.update(filtered)
+        }
+    }
+
     searchEdit.addTextChangedListener(object : TextWatcher {
         override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
         override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-            val query = s?.toString()?.lowercase() ?: ""
-            val filtered = if (query.isEmpty()) {
-                allIcons
-            } else {
-                allIcons.filter { it.label.lowercase().contains(query) || it.drawableName.lowercase().contains(query) }
-            }
-            adapter.update(filtered)
+            applyFilter()
         }
         override fun afterTextChanged(s: Editable?) {}
     })
@@ -200,6 +235,11 @@ fun AbstractDetailedAppInfo.showCustomIconPickerDialog(context: Context) {
     }
 
     dialog.show()
+
+    loadJob = scope.launch {
+        allIcons = withContext(Dispatchers.IO) { iconManager.getAvailableIcons(context) }
+        progress.visibility = View.GONE
+        recycler.visibility = View.VISIBLE
+        applyFilter()
+    }
 }
-
-
