@@ -202,7 +202,13 @@ class Application : android.app.Application() {
             delay(150)
             val result = getApps(packageManager, applicationContext)
             ensureActive()
+            // show the labels right away, icons are resolved lazily
             apps.postValue(result)
+            preloadAppIcons(result, applicationContext) {
+                // post again so observers can pick up the icons of the first rows
+                ensureActive()
+                apps.postValue(result)
+            }
         }
     }
 }
