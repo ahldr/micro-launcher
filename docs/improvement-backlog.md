@@ -31,6 +31,12 @@ Use the stronger option if the first attempt fails review.
 | W3 | Widgets | Keep the hosted widget's reported size in sync | Sonnet 5.5 / high |
 | W4 | Widgets | Edit-mode ergonomics: dp handles, cancel handling, small widgets | Sonnet 5.5 / medium |
 | W5 | Widgets | Placement and lifecycle robustness | Sonnet 5.5 / medium |
+| P1 | Performance | Read icon preferences once per app load, not once per app | Haiku 5.5 / medium |
+| P2 | Performance | Cache decoded gesture actions | Sonnet 5.5 / medium |
+| P3 | Performance | Load widget picker icons and previews lazily | Sonnet 5.5 / medium |
+| P4 | Performance | Drop unused preview decoding in widget edit mode | Haiku 5.5 / low |
+| P5 | Performance | Move shortcut cleanup off the startup path | Haiku 5.5 / medium |
+| P6 | Performance | Release build: Baseline Profile and resource shrinking | Sonnet 5.5 / high |
 
 ---
 
@@ -452,3 +458,151 @@ handles look the same physical size on a phone and a tablet.
 - Uninstall an app whose widget is placed: edit mode shows a labelled placeholder that can
   be removed.
 - Adding a clock widget to a panel that already has one doesn't stack them.
+
+---
+
+## Performance
+
+These are lower-level optimisations. Most of them don't change behaviour; they reduce work
+on hot paths.
+
+### P1. Read icon preferences once per app load, not once per app
+
+**Problem.** `getApps()` (`Functions.kt`) constructs a `DetailedAppInfo` per launcher
+activity. Each one calls `IconPackManager.getIcon(appInfo, componentName)`
+(`icons/IconPackManager.kt`), which on **every call** reads:
+- `LauncherPreferences.theme().iconPack()`
+- `LauncherPreferences.apps().customIcons()`, which deserialises the whole custom-icon map
+  from JSON (`MapAbstractAppInfoStringPreferenceSerializer`)
+
+With N apps and M custom icons, one app load costs N × M JSON decodes. The fallback path
+in `getApps()` calls `IconPackManager.getInstance(context)` inside the loop as well.
+
+**Fix.**
+1. Add an overload
+   `getIcon(appInfo, componentName, customIcons: Map<AbstractAppInfo, String>?)` that does
+   not read preferences.
+2. In `getApps()`, read `iconPack()` once (calling `setIconPack` if needed) and read
+   `customIcons()` once. Pass the snapshot through the `DetailedAppInfo` constructor to the
+   new overload. Hoist `IconPackManager.getInstance` out of the fallback loop.
+3. Keep the old `getIcon` signature for other callers (`DetailedAppInfo.fromAppInfo`); it
+   can delegate to the new one.
+
+**Acceptance.** Set 5+ custom icons, then compare the `"apps loaded (Xms)"` log line before
+and after. The new time should be lower and the icons identical.
+
+### P2. Cache decoded gesture actions
+
+**Problem.** `Action.forGesture(gesture)` (`actions/Action.kt`) reads the preference string
+and runs `Json.decodeFromString` on every call. It is called from:
+- `HomeActivity.updateSettingsFallbackButtonVisibility()`, on every `onResume`, for all
+  ~40 gestures
+- `AppFilter` with "hide bound apps", on every search keystroke (see also G4)
+- every gesture invocation
+- `removeUnusedShortcuts()` at startup
+
+**Fix.**
+1. Add a `ConcurrentHashMap<String, Action?>` cache in `Action.Companion`.
+   `forGesture` returns the cached value when present, otherwise decodes and stores it. Use
+   a sentinel or `containsKey` so that cached `null` values also count as hits.
+2. Invalidate entries in `setActionForGesture`, `clearActionForGesture` and
+   `resetToDefaultActions`.
+3. Because preferences can also change through import or reset, register a
+   `SharedPreferences` listener once in `Application.onCreate` that removes `key` from the
+   cache when `Gesture.byId(key) != null`, and clears everything when `key == null`
+   (preferences cleared).
+
+**Acceptance.** Binding, unbinding and resetting gestures take effect immediately.
+Returning to the home screen performs no `Json.decodeFromString` calls for actions (check
+with a breakpoint).
+
+### P3. Load widget picker icons and previews lazily
+
+**Problem.** `SelectWidgetActivity.SelectWidgetRecyclerAdapter` calls
+`getAppWidgetProviders()` in a property initialiser on the main thread. For **every**
+installed widget provider, the `LauncherAppWidgetProvider` constructor
+(`widgets/LauncherWidgetProvider.kt`) eagerly calls `loadIcon`, `getUserBadgedIcon` and
+`loadPreviewImage`, which decodes a bitmap, and `LauncherApps.getActivityList`, which is a
+binder call. With 50 to 100 providers, opening "Add widget" stalls visibly.
+
+**Fix.**
+1. Make `icon` and `previewImage` lazily loaded: store the `AppWidgetProviderInfo` and a
+   `Context`, and turn the properties into `by lazy`. The clock provider can keep its eager
+   values.
+2. Load the provider list in `lifecycleScope.launch(Dispatchers.IO)` and show an empty
+   list or progress state until it arrives.
+3. In `onBindViewHolder`, if the preview isn't loaded yet, set a placeholder and load it on
+   `Dispatchers.IO`. Post the result back only if the holder still shows the same provider:
+   compare `bindingAdapterPosition`, or keep a tag on the view.
+4. Search and sort must keep working on labels only, without needing icons.
+
+**Acceptance.** "Add widget" opens instantly. Previews fill in while scrolling. Search and
+sort still work.
+
+### P4. Drop unused preview decoding in widget edit mode
+
+**Problem.** In `ui/widgets/manage/WidgetOverlayView.kt`, the `widgetId` setter calls
+`it.getPreview(context)`. That decodes the provider's preview image at high density
+(`AppWidget.getPreview`). It runs for every overlay, every time
+`WidgetManagerView.updateWidgets` runs, which is on every resume and every preference
+change. The preview is never drawn: the drawing code in `onDraw` is commented out.
+
+**Fix.** Remove the `preview` field and the `getPreview` call from `WidgetOverlayView`.
+Keep `Widget.getPreview` itself; `SelectWidgetActivity` and others may use it. If
+`isConfigurable` / `isReconfigurable` / `getIcon` are called together in hot paths, fetch
+`getAppWidgetInfo(id)` once and reuse it.
+
+**Acceptance.** Edit mode looks and behaves the same. No preview bitmaps are decoded when
+entering it.
+
+### P5. Move shortcut cleanup off the startup path
+
+**Problem.** `Application.onCreate()` calls `removeUnusedShortcuts(this)` (`Functions.kt`) on
+the main thread. It queries pinned shortcuts for every user profile, which is binder work,
+decodes every gesture action, and calls `pinShortcuts`. That runs on every process start,
+including after the system kills the launcher in the background, and it delays the first
+frame of the home screen.
+
+**Fix.** Run `removeUnusedShortcuts` on a background dispatcher, for example the
+application scope from G7, or a one-off `CoroutineScope(Dispatchers.IO).launch` if G7 has
+not landed. The function only reads preferences and talks to `LauncherApps`, so it doesn't
+need the main thread. Leave `migratePreferencesToNewVersion` and `resetPreferences` on
+the main thread: later code depends on them having finished.
+
+**Acceptance.** Shortcuts not bound to any gesture are still unpinned. Cold start (for
+example `adb shell am start -W` of the home activity after `am force-stop`) reports a
+shorter `TotalTime`.
+
+### P6. Release build: Baseline Profile and resource shrinking
+
+**Problem.** `app/build.gradle.kts` enables R8 (`isMinifyEnabled = true`) but:
+- does not enable `isShrinkResources`
+- ships no Baseline Profile
+
+Without a profile, the home screen, gesture detector and app drawer run interpreted or
+JIT-compiled for the first several launches after every install or update. That is
+exactly when the launcher feels sluggish.
+
+**Fix.**
+1. Add `isShrinkResources = true` to the `release` build type. Build the release APK and
+   check it still starts. Verify that resources referenced only by name aren't stripped.
+   For example, `R.string` keys used through the preferences library might be. Add a
+   `res/raw/keep.xml` with `tools:keep` if needed.
+2. Add `androidx.profileinstaller:profileinstaller` as a dependency. It is small and needed
+   for sideloaded and F-Droid installs to apply profiles.
+3. Add a `:baselineprofile` module using the `androidx.baselineprofile` Gradle plugin, with
+   one generator test that:
+   - starts the launcher as home
+   - opens the app drawer with a swipe-up gesture
+   - types in search
+   - scrolls the list
+   - opens settings
+   Commit the generated `baseline-prof.txt` to `app/src/main/`.
+4. Check the F-Droid / reproducible build constraints in `docs/build.md` before adding
+   plugins. If a new plugin is a problem there, do step 1 and step 2 with a hand-written
+   `baseline-prof.txt` covering `HomeActivity`, `TouchGestureDetector`, `AppListActivity`,
+   `AppsRecyclerAdapter` and `WidgetContainerView`.
+
+**Acceptance.** `./gradlew assembleDefaultRelease` succeeds. The APK size doesn't grow.
+Compare cold start and drawer-open frame times with a macrobenchmark, or with
+`adb shell am start -W` plus `dumpsys gfxinfo`, before and after.
