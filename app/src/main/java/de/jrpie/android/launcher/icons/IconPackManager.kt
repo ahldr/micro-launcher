@@ -8,7 +8,9 @@ import android.content.res.Resources
 import android.graphics.drawable.Drawable
 import android.util.Log
 import androidx.core.content.res.ResourcesCompat
+import de.jrpie.android.launcher.Application
 import de.jrpie.android.launcher.apps.AbstractAppInfo
+import de.jrpie.android.launcher.apps.AppInfo
 import de.jrpie.android.launcher.preferences.LauncherPreferences
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
@@ -19,7 +21,11 @@ data class IconEntry(
     val label: String,
     val componentNameStr: String,
     val drawableName: String
-)
+) {
+    // Lowercase search keys, computed once instead of on every keystroke.
+    val labelKey: String = label.lowercase()
+    val drawableNameKey: String = drawableName.lowercase()
+}
 
 class IconPackManager private constructor(private val context: Context) {
 
@@ -201,23 +207,27 @@ class IconPackManager private constructor(private val context: Context) {
         return null
     }
 
+    /**
+     * Lists all icons of the current pack. Does not touch the main thread's state,
+     * so it is safe (and intended) to call this from a background thread.
+     */
     fun getAvailableIcons(context: Context): List<IconEntry> {
-        val pack = currentPack()
+        val pack = currentPack() ?: return emptyList()
 
-        val list = mutableListOf<IconEntry>()
-        val pm = context.packageManager
-
-        for ((comp, drawableName) in pack?.map.orEmpty()) {
-            val label = try {
-                val activityInfo = pm.getActivityInfo(comp, 0)
-                activityInfo.loadLabel(pm).toString()
-            } catch (e: Exception) {
-                drawableName
-            }
-            list.add(IconEntry(label, comp.flattenToString(), drawableName))
+        // Prefer labels from the already loaded app list over a PackageManager query per entry.
+        val labels = HashMap<ComponentName, String>()
+        (context.applicationContext as? Application)?.apps?.value?.forEach { app ->
+            val info = app.getRawInfo() as? AppInfo ?: return@forEach
+            val activity = info.activityName ?: return@forEach
+            labels.putIfAbsent(ComponentName(info.packageName, activity), app.getLabel())
         }
 
-        list.sortBy { it.label.lowercase() }
+        val list = ArrayList<IconEntry>(pack.map.size)
+        for ((comp, drawableName) in pack.map) {
+            list.add(IconEntry(labels[comp] ?: drawableName, comp.flattenToString(), drawableName))
+        }
+
+        list.sortBy { it.labelKey }
         return list
     }
 
