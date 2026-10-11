@@ -270,7 +270,13 @@ class AppsRecyclerAdapter(
 
             val inputMethodManager =
                 activity.getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
-            inputMethodManager.hideSoftInputFromWindow(View(activity).windowToken, 0)
+            // use the token of an attached view; a new View has no window token
+            inputMethodManager.hideSoftInputFromWindow(root.windowToken, 0)
+
+            // clear the query so returning to the drawer doesn't re-trigger auto-launch
+            appFilter.query = ""
+            root.findViewById<androidx.appcompat.widget.SearchView>(R.id.list_apps_searchview)
+                ?.setQuery("", false)
         }
 
         notifyDataSetChanged()
