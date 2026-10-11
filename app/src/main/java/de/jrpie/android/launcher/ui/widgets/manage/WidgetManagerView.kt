@@ -19,6 +19,7 @@ import androidx.core.graphics.minus
 import androidx.core.graphics.toRect
 import de.jrpie.android.launcher.ui.widgets.WidgetContainerView
 import de.jrpie.android.launcher.widgets.GRID_SIZE
+import de.jrpie.android.launcher.widgets.MIN_WIDGET_CELLS
 import de.jrpie.android.launcher.widgets.Widget
 import de.jrpie.android.launcher.widgets.WidgetPanel
 import de.jrpie.android.launcher.widgets.WidgetPosition
@@ -65,7 +66,7 @@ class WidgetManagerView(widgetPanelId: Int, context: Context, attrs: AttributeSe
             Rect(rect.left + cdx, rect.top + cdy, rect.right + cdx, rect.bottom + cdy)
         }),
         TOP({ _, dy, _, sh, rect ->
-            val range = (-rect.top)..(rect.bottom - rect.top - (2 * sh / GRID_SIZE) + 5)
+            val range = (-rect.top)..(rect.bottom - rect.top - (MIN_WIDGET_CELLS * sh / GRID_SIZE) + 5)
             if (range.isEmpty()) {
                 rect
             } else {
@@ -73,7 +74,7 @@ class WidgetManagerView(widgetPanelId: Int, context: Context, attrs: AttributeSe
             }
         }),
         BOTTOM({ _, dy, _, sh, rect ->
-            val range = ((2 * sh / GRID_SIZE) + 5 + rect.top - rect.bottom)..(sh - rect.bottom)
+            val range = ((MIN_WIDGET_CELLS * sh / GRID_SIZE) + 5 + rect.top - rect.bottom)..(sh - rect.bottom)
             if (range.isEmpty()) {
                 rect
             } else {
@@ -81,7 +82,7 @@ class WidgetManagerView(widgetPanelId: Int, context: Context, attrs: AttributeSe
             }
         }),
         LEFT({ dx, _, sw, _, rect ->
-            val range = (-rect.left)..(rect.right - rect.left - (2 * sw / GRID_SIZE) + 5)
+            val range = (-rect.left)..(rect.right - rect.left - (MIN_WIDGET_CELLS * sw / GRID_SIZE) + 5)
             if (range.isEmpty()) {
                 rect
             } else {
@@ -89,7 +90,7 @@ class WidgetManagerView(widgetPanelId: Int, context: Context, attrs: AttributeSe
             }
         }),
         RIGHT({ dx, _, sw, _, rect ->
-            val range = ((2 * sw / GRID_SIZE) + 5 + rect.left - rect.right)..(sw - rect.right)
+            val range = ((MIN_WIDGET_CELLS * sw / GRID_SIZE) + 5 + rect.left - rect.right)..(sw - rect.right)
             if (range.isEmpty()) {
                 rect
             } else {
@@ -170,6 +171,21 @@ class WidgetManagerView(widgetPanelId: Int, context: Context, attrs: AttributeSe
                         endInteraction()
                     }
                 }, longPressTimeout)
+            }
+            if (event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                // The system took over the gesture: revert to the position before it started.
+                val overlay = selectedWidgetOverlayView
+                val start = startWidgetPosition
+                if (overlay != null && start != null) {
+                    val original = WidgetPosition.fromAbsoluteRect(start, width, height)
+                    (overlay.layoutParams as? Companion.LayoutParams)?.position = original
+                    (selectedWidgetView?.layoutParams as? Companion.LayoutParams)?.position =
+                        original
+                    requestLayout()
+                }
+                lastPosition = Rect()
+                endInteraction()
+                return true
             }
             if (event.actionMasked == MotionEvent.ACTION_MOVE ||
                 event.actionMasked == MotionEvent.ACTION_UP

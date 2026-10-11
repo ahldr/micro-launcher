@@ -8,6 +8,9 @@ import kotlin.math.roundToInt
 
 const val GRID_SIZE: Short = 12
 
+/** Minimum width and height of a widget, in grid cells. */
+const val MIN_WIDGET_CELLS: Short = 2
+
 @Serializable
 data class WidgetPosition(var x: Short, var y: Short, var width: Short, var height: Short, var zIndex: Short? = null) {
     // The default zIndex should be 0. Currently null is used to keep compatibility with older configs
@@ -49,8 +52,8 @@ data class WidgetPosition(var x: Short, var y: Short, var width: Short, var heig
                 .coerceIn(0, (GRID_SIZE - 1).toShort())
 
 
-            val w = max(2, ((absolute.right - absolute.left) / gridWidth).roundToInt()).toShort()
-            val h = max(2, ((absolute.bottom - absolute.top) / gridHeight).roundToInt()).toShort()
+            val w = max(MIN_WIDGET_CELLS.toInt(), ((absolute.right - absolute.left) / gridWidth).roundToInt()).toShort()
+            val h = max(MIN_WIDGET_CELLS.toInt(), ((absolute.bottom - absolute.top) / gridHeight).roundToInt()).toShort()
 
             return WidgetPosition(x, y, w, h, zIndex)
 

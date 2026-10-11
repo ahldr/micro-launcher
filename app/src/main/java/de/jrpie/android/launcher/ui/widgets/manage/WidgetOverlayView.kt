@@ -9,6 +9,7 @@ import android.graphics.Paint.Align
 import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.util.AttributeSet
+import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -21,10 +22,11 @@ import de.jrpie.android.launcher.widgets.Widget
 import de.jrpie.android.launcher.widgets.updateWidget
 
 
-private const val HANDLE_SIZE = 100
-private const val HANDLE_EDGE_SIZE = (1.2 * HANDLE_SIZE).toInt()
-private const val SETTINGS_ICON_SIZE = (0.9 * HANDLE_SIZE).toInt()
-private const val SETTINGS_ICON_OFFSET = (HANDLE_EDGE_SIZE - SETTINGS_ICON_SIZE) / 2
+private const val HANDLE_SIZE_DP = 32f
+private const val HANDLE_EDGE_SIZE_DP = 40f
+private const val SETTINGS_ICON_SIZE_DP = 28f
+private const val LABEL_TEXT_SIZE_SP = 20f
+private const val LABEL_MIN_TEXT_SIZE_SP = 8f
 
 /**
  * An overlay to show configuration options for a widget in [WidgetManagerView]
@@ -38,6 +40,17 @@ class WidgetOverlayView : ViewGroup {
     private val interactionDisabledOverlayTextPaint = Paint()
     private val interactionDisabledString = context.getString(R.string.widget_overlay_interaction_disabled)
     private val settingsDrawable = ResourcesCompat.getDrawable(resources, R.drawable.baseline_settings_24, context.theme)
+
+    private fun spToPx(sp: Float) =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, resources.displayMetrics)
+
+    private val density = resources.displayMetrics.density
+    private val handleSize = (HANDLE_SIZE_DP * density).toInt()
+    private val handleEdgeSize = (HANDLE_EDGE_SIZE_DP * density).toInt()
+    private val settingsIconSize = (SETTINGS_ICON_SIZE_DP * density).toInt()
+    private val settingsIconOffset = (handleEdgeSize - settingsIconSize) / 2
+    private val labelTextSize = spToPx(LABEL_TEXT_SIZE_SP)
+    private val labelMinTextSize = spToPx(LABEL_MIN_TEXT_SIZE_SP)
 
     private val popupAnchor = View(context)
     val settingsButton = ImageView(context).also {
@@ -70,7 +83,7 @@ class WidgetOverlayView : ViewGroup {
         interactionDisabledOverlayTextPaint.style = Paint.Style.FILL
         interactionDisabledOverlayTextPaint.setARGB(150, 255, 255, 255)
         interactionDisabledOverlayTextPaint.textAlign = Align.CENTER
-        interactionDisabledOverlayTextPaint.textSize = 60f
+        interactionDisabledOverlayTextPaint.textSize = labelTextSize
         interactionDisabledOverlayTextPaint.isAntiAlias = true
         interactionDisabledOverlayTextPaint.typeface =
             LauncherPreferences.theme().font().getTypeface(context)
@@ -122,10 +135,19 @@ class WidgetOverlayView : ViewGroup {
                 5f,
                 interactionDisabledOverlayPaint
             )
-            val x = (width / 2).toFloat()
-            val y =
-                (height - interactionDisabledOverlayTextPaint.descent() - interactionDisabledOverlayTextPaint.ascent()) / 2
-            canvas.drawText(interactionDisabledString, x, y, interactionDisabledOverlayTextPaint)
+            // shrink the label to fit the widget; hide it if it would become unreadable
+            val textPaint = interactionDisabledOverlayTextPaint
+            val availableWidth = width - 2 * handleSize.toFloat()
+            textPaint.textSize = labelTextSize
+            val textWidth = textPaint.measureText(interactionDisabledString)
+            if (textWidth > availableWidth && textWidth > 0f) {
+                textPaint.textSize = labelTextSize * availableWidth / textWidth
+            }
+            if (availableWidth > 0f && textPaint.textSize >= labelMinTextSize) {
+                val x = (width / 2).toFloat()
+                val y = (height - textPaint.descent() - textPaint.ascent()) / 2
+                canvas.drawText(interactionDisabledString, x, y, textPaint)
+            }
         }
 
         getHandles().forEach {
@@ -148,7 +170,7 @@ class WidgetOverlayView : ViewGroup {
 
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         popupAnchor.layout(0, 0, 0, 0)
-        settingsButton.layout(SETTINGS_ICON_OFFSET, SETTINGS_ICON_OFFSET, SETTINGS_ICON_OFFSET + SETTINGS_ICON_SIZE, SETTINGS_ICON_OFFSET + SETTINGS_ICON_SIZE)
+        settingsButton.layout(settingsIconOffset, settingsIconOffset, settingsIconOffset + settingsIconSize, settingsIconOffset + settingsIconSize)
     }
 
     fun showPopupMenu() {
@@ -203,22 +225,30 @@ class WidgetOverlayView : ViewGroup {
     }
 
     fun getHandles(): List<Handle> {
+        // Shrink the handles on small widgets so that every edge keeps a grabbable area.
+        val scale = minOf(
+            1f,
+            width / (3f * handleEdgeSize),
+            height / (3f * handleEdgeSize)
+        ).coerceAtLeast(0f)
+        val size = (handleSize * scale).toInt()
+        val edge = (handleEdgeSize * scale).toInt()
         return listOf(
             Handle(
                 WidgetManagerView.EditMode.TOP,
-                Rect(HANDLE_EDGE_SIZE, 0, width - HANDLE_EDGE_SIZE, HANDLE_SIZE)
+                Rect(edge, 0, width - edge, size)
             ),
             Handle(
                 WidgetManagerView.EditMode.BOTTOM,
-                Rect(HANDLE_EDGE_SIZE, height - HANDLE_SIZE, width - HANDLE_EDGE_SIZE, height)
+                Rect(edge, height - size, width - edge, height)
             ),
             Handle(
                 WidgetManagerView.EditMode.LEFT,
-                Rect(0, HANDLE_EDGE_SIZE, HANDLE_SIZE, height - HANDLE_EDGE_SIZE)
+                Rect(0, edge, size, height - edge)
             ),
             Handle(
                 WidgetManagerView.EditMode.RIGHT,
-                Rect(width - HANDLE_SIZE, HANDLE_EDGE_SIZE, width, height - HANDLE_EDGE_SIZE)
+                Rect(width - size, edge, width, height - edge)
             )
         )
 
