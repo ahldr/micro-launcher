@@ -291,6 +291,14 @@ class AppsRecyclerAdapter(
 
     }
 
+    /**
+     * Drops the cached base list of the [AppFilter]. Call this before [updateAppsList]
+     * when a preference which affects the filtered list changed.
+     */
+    fun invalidateAppFilter() {
+        appFilter.invalidate()
+    }
+
     fun setFavoritesVisibility(v: AppFilter.Companion.AppSetVisibility) {
         appFilter.favoritesVisibility = v
         updateAppsList()
