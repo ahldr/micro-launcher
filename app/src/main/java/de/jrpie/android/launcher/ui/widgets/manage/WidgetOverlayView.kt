@@ -91,6 +91,17 @@ class WidgetOverlayView : ViewGroup {
             }
         }
 
+    /**
+     * Refreshes the state shown by this overlay after [widget] was changed.
+     */
+    fun update(widget: Widget) {
+        val disabled = !widget.allowInteraction
+        if (disabled != interactionDisabled) {
+            interactionDisabled = disabled
+            invalidate()
+        }
+    }
+
     constructor(context: Context) : super(context)
 
     constructor(context: Context, attrs: AttributeSet) : super(context, attrs)

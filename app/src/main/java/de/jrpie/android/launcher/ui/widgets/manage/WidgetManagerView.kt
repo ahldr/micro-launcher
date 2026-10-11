@@ -233,16 +233,45 @@ class WidgetManagerView(widgetPanelId: Int, context: Context, attrs: AttributeSe
         super.updateWidgets(activity, widgets)
 
         synchronized(overlayViewById) {
-            overlayViewById.forEach { removeView(it.value) }
-            overlayViewById.clear()
-            widgets?.filter { it.panelId == widgetPanelId }?.forEach { widget ->
-                WidgetOverlayView(activity).let {
-                    it.widgetId = widget.id
-                    addView(it)
-                    (it.layoutParams as Companion.LayoutParams).position = widget.position
-                    overlayViewById[widget.id] = it
+            val target = widgets?.filter { it.panelId == widgetPanelId } ?: listOf()
+            val targetIds = target.mapTo(HashSet()) { it.id }
+
+            // remove overlays of widgets which no longer exist on this panel
+            overlayViewById.keys.filter { it !in targetIds }.forEach { id ->
+                overlayViewById.remove(id)?.let { removeView(it) }
+            }
+
+            target.forEach { widget ->
+                val overlay = overlayViewById[widget.id]
+                if (overlay != null) {
+                    val layoutParams = overlay.layoutParams as Companion.LayoutParams
+                    if (layoutParams.position != widget.position) {
+                        layoutParams.position = widget.position
+                    }
+                    overlay.update(widget)
+                } else {
+                    WidgetOverlayView(activity).let {
+                        it.widgetId = widget.id
+                        addView(it, Companion.LayoutParams(widget.position))
+                        overlayViewById[widget.id] = it
+                    }
                 }
             }
+
+            // Every overlay must be above every widget view (in particular above its own).
+            // Overlays are stacked in the same order as their widgets.
+            val widgetViews = (0..<childCount).map { getChildAt(it) }
+                .filter { it !is WidgetOverlayView }
+            val overlays = target
+                .mapNotNull { widget -> overlayViewById[widget.id]?.let { Pair(widget, it) } }
+                .sortedWith(compareBy(
+                    { it.first.position.zIndex?.toInt() ?: 0 },
+                    { indexOfChild(widgetViewById[it.first.id] ?: it.second) }
+                ))
+                .map { it.second }
+            ensureChildOrder(widgetViews + overlays)
+
+            requestLayout()
         }
     }
 }
