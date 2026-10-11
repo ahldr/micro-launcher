@@ -12,21 +12,63 @@ import java.util.Locale
 class AppFilter(
     var context: Context,
     var query: String,
-    var favoritesVisibility: AppSetVisibility = AppSetVisibility.VISIBLE,
-    var hiddenVisibility: AppSetVisibility = AppSetVisibility.HIDDEN,
-    var privateSpaceVisibility: AppSetVisibility = AppSetVisibility.VISIBLE
+    favoritesVisibility: AppSetVisibility = AppSetVisibility.VISIBLE,
+    hiddenVisibility: AppSetVisibility = AppSetVisibility.HIDDEN,
+    privateSpaceVisibility: AppSetVisibility = AppSetVisibility.VISIBLE
 ): FilterHelper() {
 
-    operator fun invoke(apps: List<AbstractDetailedAppInfo>): List<AbstractDetailedAppInfo> {
-        var apps =
-            apps.sortedBy { app -> app.getCustomLabel(context).lowercase(Locale.ROOT) }
+    var favoritesVisibility: AppSetVisibility = favoritesVisibility
+        set(value) {
+            if (field != value) invalidate()
+            field = value
+        }
+    var hiddenVisibility: AppSetVisibility = hiddenVisibility
+        set(value) {
+            if (field != value) invalidate()
+            field = value
+        }
+    var privateSpaceVisibility: AppSetVisibility = privateSpaceVisibility
+        set(value) {
+            if (field != value) invalidate()
+            field = value
+        }
+
+    /** An app together with its (custom) label, which is computed once per base list. */
+    private data class Entry(val app: AbstractDetailedAppInfo, val label: String)
+
+    // Cached result of the base list step (sort, visibility, bound apps), see [baseList].
+    // Only accessed from the main thread.
+    private var cachedInput: List<AbstractDetailedAppInfo>? = null
+    private var cachedBase: List<Entry>? = null
+
+    /**
+     * Drops the cached base list. Must be called when a preference that influences the
+     * base list (hidden, favorites, custom names, hide bound apps, gesture bindings, ...)
+     * changes. A new `apps` list reference and changes of the visibility properties
+     * invalidate the cache automatically.
+     */
+    fun invalidate() {
+        cachedInput = null
+        cachedBase = null
+    }
+
+    /**
+     * Base list step: sort, visibility and bound apps. Independent of [query].
+     */
+    private fun baseList(apps: List<AbstractDetailedAppInfo>): List<Entry> {
+        cachedBase?.let { if (cachedInput === apps) return it }
+
+        // compute each label once instead of once per comparison
+        val sorted = apps
+            .map { app -> Entry(app, app.getCustomLabel(context)) }
+            .sortedBy { entry -> entry.label.lowercase(Locale.ROOT) }
 
         val hidden = LauncherPreferences.apps().hidden() ?: setOf()
         val favorites = LauncherPreferences.apps().favorites() ?: setOf()
         val private = apps.filter { it.isPrivate() }
             .map { it.getRawInfo() }.toSet()
 
-        apps = apps.filter { info ->
+        var result = sorted.filter { (info, _) ->
             favoritesVisibility.predicate(favorites, info)
                     && hiddenVisibility.predicate(hidden, info)
                     && privateSpaceVisibility.predicate(private, info)
@@ -41,15 +83,22 @@ class AppFilter(
                         ?: (it as? ShortcutAction)?.shortcut
                 }
                 .toSet()
-            apps = apps.filterNot { info -> boundApps.contains(info.getRawInfo()) }
+            result = result.filterNot { (info, _) -> boundApps.contains(info.getRawInfo()) }
         }
 
+        cachedInput = apps
+        cachedBase = result
+        return result
+    }
+
+    operator fun invoke(apps: List<AbstractDetailedAppInfo>): List<AbstractDetailedAppInfo> {
+        val base = baseList(apps)
+
+        // query step: the only part that depends on the search string
         return if (query.isEmpty()) {
-            apps
+            base.map { it.app }
         } else {
-            apps.filterByQuery(query) { app ->
-                listOf(app.getCustomLabel(context))
-            }
+            base.filterByQuery(query) { entry -> listOf(entry.label) }.map { it.app }
         }
     }
 
