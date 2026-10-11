@@ -34,13 +34,24 @@ class ListFragmentApps : Fragment(), UIObject {
 
     private var sharedPreferencesListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, pref ->
-            appsRecyclerAdapter.updateAppsList()
+            // A null key means the whole preference store changed, so refresh in that case too.
+            if (pref == null || affectsAppList(pref)) {
+                appsRecyclerAdapter.updateAppsList()
+            }
             if (pref == LauncherPreferences.list().keys().gridColumns() || pref == LauncherPreferences.list().keys().layout()) {
                 binding.listAppsRview.layoutManager?.let {
                     LauncherPreferences.list().layout().updateLayoutManager(requireContext(), it)
                 }
             }
         }
+
+    /**
+     * Whether a changed preference can alter which apps are listed or how they are sorted:
+     * app visibility/favourites/names/icons (`apps.*`), gesture bindings used by
+     * "hide bound apps" (`action.*`) and list layout options (`list.*`).
+     */
+    private fun affectsAppList(key: String): Boolean =
+        key.startsWith("apps.") || key.startsWith("action.") || key.startsWith("list.")
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
