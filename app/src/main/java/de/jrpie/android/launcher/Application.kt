@@ -24,6 +24,7 @@ import de.jrpie.android.launcher.apps.isPrivateSpaceLocked
 import de.jrpie.android.launcher.preferences.LauncherPreferences
 import de.jrpie.android.launcher.preferences.migratePreferencesToNewVersion
 import de.jrpie.android.launcher.preferences.resetPreferences
+import de.jrpie.android.launcher.widgets.WidgetCache
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -123,6 +124,14 @@ class Application : android.app.Application() {
         }
     }
 
+    // Preferences hold their listeners weakly, so this must be kept in a field.
+    private val widgetCacheListener = SharedPreferences.OnSharedPreferenceChangeListener { _, pref ->
+        // pref is null if the preferences were cleared
+        if (pref == null || pref == LauncherPreferences.widgets().keys().widgets()) {
+            WidgetCache.invalidate()
+        }
+    }
+
     // Keeps the decoded gesture action cache in sync with changes made through
     // import, reset or any other path that bypasses Action.setActionForGesture.
     private val actionCacheListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -154,6 +163,9 @@ class Application : android.app.Application() {
 
         val preferences = PreferenceManager.getDefaultSharedPreferences(this)
         LauncherPreferences.init(preferences, this.resources)
+
+        // Registered before the migrations below, which write widgets.
+        preferences.registerOnSharedPreferenceChangeListener(widgetCacheListener)
 
         // Try to restore old preferences
         migratePreferencesToNewVersion(this)

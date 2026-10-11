@@ -15,6 +15,7 @@ import androidx.core.graphics.contains
 import androidx.core.view.size
 import de.jrpie.android.launcher.widgets.AppWidget
 import de.jrpie.android.launcher.widgets.Widget
+import de.jrpie.android.launcher.widgets.WidgetCache
 import de.jrpie.android.launcher.widgets.WidgetPanel
 import de.jrpie.android.launcher.widgets.WidgetPosition
 import de.jrpie.android.launcher.widgets.updateSize
@@ -98,22 +99,31 @@ open class WidgetContainerView(
         }
     }
 
+    /**
+     * Whether the current gesture started on a widget which doesn't allow interaction.
+     * Decided on ACTION_DOWN and kept for the rest of the gesture.
+     */
+    private var interceptGesture = false
+
     override fun onInterceptTouchEvent(ev: MotionEvent?): Boolean {
         if (ev == null) {
             return false
         }
-        val position = PointF(ev.x, ev.y)
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
+            val position = PointF(ev.x, ev.y)
 
-        return widgetViewById.filter {
-            RectF(
-                it.value.x,
-                it.value.y,
-                it.value.x + it.value.width,
-                it.value.y + it.value.height
-            ).contains(position)
-        }.any {
-            Widget.byId(it.key)?.allowInteraction == false
+            interceptGesture = widgetViewById.filter {
+                RectF(
+                    it.value.x,
+                    it.value.y,
+                    it.value.x + it.value.width,
+                    it.value.y + it.value.height
+                ).contains(position)
+            }.any {
+                WidgetCache.isInteractionAllowed(it.key) == false
+            }
         }
+        return interceptGesture
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {

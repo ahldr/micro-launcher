@@ -19,6 +19,7 @@ import de.jrpie.android.launcher.preferences.LauncherPreferences
 import de.jrpie.android.launcher.ui.UIObject
 import de.jrpie.android.launcher.widgets.AppWidget
 import de.jrpie.android.launcher.widgets.GRID_SIZE
+import de.jrpie.android.launcher.widgets.WidgetCache
 import de.jrpie.android.launcher.widgets.WidgetPanel
 import de.jrpie.android.launcher.widgets.WidgetPosition
 import kotlin.math.max
@@ -168,6 +169,7 @@ class ManageWidgetsActivity : UIObject, Activity() {
         }
 
         val widget = AppWidget(appWidgetId, position, panelId, widgetInfo)
+        WidgetCache.invalidate()
         LauncherPreferences.widgets().widgets(
             (LauncherPreferences.widgets().widgets() ?: HashSet()).also {
                 it.add(widget)
