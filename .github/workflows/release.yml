@@ -1,0 +1,105 @@
+name: Release
+
+# Builds signed release APKs.
+#  - Push a tag `vX.Y.Z` (matching `versionName` in app/build.gradle.kts) to build and publish a
+#    draft GitHub release with the APKs.
+#  - Run the workflow manually to test the release build; the APKs are only uploaded as a
+#    workflow artifact then.
+#
+# Required repository secrets for tag builds:
+#   RELEASE_KEYSTORE_BASE64    base64 of the release keystore (`base64 -w0 release.jks`)
+#   RELEASE_KEYSTORE_PASSWORD  keystore password
+#   RELEASE_KEY_ALIAS          key alias
+#   RELEASE_KEY_PASSWORD       key password
+
+on:
+  push:
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # needed to create the release
+
+    env:
+      IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check that the tag matches the app version
+      if: env.IS_TAG == 'true'
+      run: |
+        version=$(sed -n 's/^ *versionName = "\(.*\)"/\1/p' app/build.gradle.kts | head -n1)
+        if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+          echo "::error::Tag ${GITHUB_REF_NAME} does not match versionName ${version} in app/build.gradle.kts"
+          exit 1
+        fi
+
+    - name: set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Read release keystore
+      env:
+        RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+        RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+      run: |
+        if [ -z "$RELEASE_KEYSTORE_BASE64" ] || [ -z "$RELEASE_KEYSTORE_PASSWORD" ] \
+            || [ -z "$RELEASE_KEY_ALIAS" ] || [ -z "$RELEASE_KEY_PASSWORD" ]; then
+          if [ "$IS_TAG" = "true" ]; then
+            echo "::error::Release signing secrets are not set (see the comment at the top of this workflow)."
+            exit 1
+          fi
+          echo "::warning::Release signing secrets are not set. The APKs will be signed with the debug key and are only suitable for testing."
+          exit 0
+        fi
+        echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+        {
+          echo "RELEASE_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore"
+          echo "RELEASE_KEYSTORE_PASSWORD=$RELEASE_KEYSTORE_PASSWORD"
+          echo "RELEASE_KEY_ALIAS=$RELEASE_KEY_ALIAS"
+          echo "RELEASE_KEY_PASSWORD=$RELEASE_KEY_PASSWORD"
+        } >> "$GITHUB_ENV"
+
+    - name: Build release APKs
+      run: ./gradlew assembleDefaultRelease assembleAccrescentRelease
+
+    - name: Collect and verify APKs
+      run: |
+        mkdir -p dist
+        cp app/build/outputs/apk/default/release/*.apk dist/
+        cp app/build/outputs/apk/accrescent/release/*.apk dist/
+        apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n1)
+        for apk in dist/*.apk; do
+          echo "== $apk"
+          "$apksigner" verify --verbose --print-certs "$apk"
+        done
+        (cd dist && sha256sum *.apk > SHA256SUMS.txt && cat SHA256SUMS.txt)
+
+    - name: Upload APKs
+      uses: actions/upload-artifact@v4
+      with:
+        name: launcher-release-${{ github.sha }}
+        path: dist/*
+
+    - name: Create draft release
+      if: env.IS_TAG == 'true'
+      uses: ncipollo/release-action@v1
+      with:
+        draft: true
+        name: ${{ github.ref_name }}
+        generateReleaseNotes: true
+        artifacts: "dist/*"
+        token: ${{ secrets.GITHUB_TOKEN }}
