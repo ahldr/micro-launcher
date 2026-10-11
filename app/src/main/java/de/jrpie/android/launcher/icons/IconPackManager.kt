@@ -13,6 +13,7 @@ import de.jrpie.android.launcher.preferences.LauncherPreferences
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.InputStream
+import java.util.concurrent.ConcurrentHashMap
 
 data class IconEntry(
     val label: String,
@@ -23,18 +24,25 @@ data class IconEntry(
 class IconPackManager private constructor(private val context: Context) {
 
     val availablePacks = mutableMapOf<String, String>()
-    private var currentPack: String? = null
-    private var packResources: Resources? = null
-    private val drawablesByComponent = mutableMapOf<ComponentName, String>()
+
+    /** Immutable snapshot of a fully loaded icon pack. */
+    private data class LoadedPack(
+        val pkg: String,
+        val res: Resources,
+        val map: Map<ComponentName, String>,
+        /** drawable name -> resource id (0 if not found) */
+        val resIds: ConcurrentHashMap<String, Int> = ConcurrentHashMap()
+    )
+
+    @Volatile
+    private var loaded: LoadedPack? = null
 
     init {
         loadAvailablePacks()
     }
 
     fun clearCache() {
-        currentPack = null
-        packResources = null
-        drawablesByComponent.clear()
+        loaded = null
     }
 
     fun loadAvailablePacks() {
@@ -57,25 +65,42 @@ class IconPackManager private constructor(private val context: Context) {
     }
 
     fun setIconPack(packageName: String?) {
-        if (packageName == currentPack && packResources != null) return
-        drawablesByComponent.clear()
-        currentPack = packageName
-        packResources = null
-        if (packageName.isNullOrEmpty() || packageName == "null") {
-            return
-        }
+        loadPack(packageName)
+    }
 
-        try {
-            val pm = context.packageManager
-            packResources = pm.getResourcesForApplication(packageName)
-            parseAppFilterXml(packageName)
-        } catch (e: Exception) {
-            Log.e("IconPackManager", "Failed to load icon pack $packageName", e)
+    private fun loadPack(packageName: String?): LoadedPack? {
+        if (packageName.isNullOrEmpty() || packageName == "null") {
+            loaded = null
+            return null
+        }
+        synchronized(this) {
+            loaded?.let { if (it.pkg == packageName) return it }
+            loaded = null
+            return try {
+                val res = context.packageManager.getResourcesForApplication(packageName)
+                val pack = LoadedPack(packageName, res, parseAppFilterXml(res, packageName))
+                loaded = pack
+                pack
+            } catch (e: Exception) {
+                Log.e("IconPackManager", "Failed to load icon pack $packageName", e)
+                null
+            }
         }
     }
 
-    private fun parseAppFilterXml(packageName: String) {
-        val resources = packResources ?: return
+    /** Returns the pack selected in the preferences, loading it if necessary. */
+    private fun currentPack(): LoadedPack? {
+        val prefPack = LauncherPreferences.theme().iconPack()
+        val pack = loaded
+        if (pack != null && pack.pkg == prefPack) return pack
+        return loadPack(prefPack)
+    }
+
+    private fun parseAppFilterXml(
+        resources: Resources,
+        packageName: String
+    ): Map<ComponentName, String> {
+        val result = HashMap<ComponentName, String>()
         var parser: XmlPullParser? = null
 
         // Try to get from xml folder
@@ -93,7 +118,7 @@ class IconPackManager private constructor(private val context: Context) {
             }
         }
 
-        if (parser == null) return
+        if (parser == null) return result
 
         try {
             var eventType = parser.eventType
@@ -110,7 +135,7 @@ class IconPackManager private constructor(private val context: Context) {
                     if (componentStr != null && drawableStr != null) {
                         val component = parseComponent(componentStr)
                         if (component != null) {
-                            drawablesByComponent[component] = drawableStr
+                            result[component] = drawableStr
                         }
                     }
                 }
@@ -119,6 +144,7 @@ class IconPackManager private constructor(private val context: Context) {
         } catch (e: Exception) {
             Log.e("IconPackManager", "Error parsing appfilter", e)
         }
+        return result
     }
 
     private fun parseComponent(str: String): ComponentName? {
@@ -129,10 +155,7 @@ class IconPackManager private constructor(private val context: Context) {
     }
 
     fun getIcon(appInfo: AbstractAppInfo, defaultComponentName: ComponentName): Drawable? {
-        val prefPack = LauncherPreferences.theme().iconPack()
-        if (prefPack != currentPack) {
-            setIconPack(prefPack)
-        }
+        val pack = currentPack()
 
         // Check for custom per-app icon override
         val customMap = LauncherPreferences.apps().customIcons()
@@ -140,36 +163,37 @@ class IconPackManager private constructor(private val context: Context) {
         if (!customTarget.isNullOrEmpty()) {
             val customComponent = ComponentName.unflattenFromString(customTarget)
             if (customComponent != null) {
-                val icon = getIconForComponent(customComponent)
+                val icon = getIconForComponent(pack, customComponent)
                 if (icon != null) return icon
             }
-            val icon = getDrawableByName(customTarget)
+            val icon = getDrawableByName(pack, customTarget)
             if (icon != null) return icon
         }
 
-        return getIconForComponent(defaultComponentName)
+        return getIconForComponent(pack, defaultComponentName)
     }
 
     fun getIcon(componentName: ComponentName): Drawable? {
-        val prefPack = LauncherPreferences.theme().iconPack()
-        if (prefPack != currentPack) {
-            setIconPack(prefPack)
+        return getIconForComponent(currentPack(), componentName)
+    }
+
+    private fun getIconForComponent(pack: LoadedPack?, componentName: ComponentName): Drawable? {
+        if (pack == null) return null
+        val drawableName = pack.map[componentName] ?: return null
+        return getDrawableByName(pack, drawableName)
+    }
+
+    fun getDrawableByName(drawableName: String): Drawable? =
+        getDrawableByName(loaded, drawableName)
+
+    private fun getDrawableByName(pack: LoadedPack?, drawableName: String): Drawable? {
+        if (pack == null) return null
+        val resId = pack.resIds.getOrPut(drawableName) {
+            pack.res.getIdentifier(drawableName, "drawable", pack.pkg)
         }
-        return getIconForComponent(componentName)
-    }
-
-    private fun getIconForComponent(componentName: ComponentName): Drawable? {
-        if (packResources == null || currentPack == null) return null
-        val drawableName = drawablesByComponent[componentName] ?: return null
-        return getDrawableByName(drawableName)
-    }
-
-    fun getDrawableByName(drawableName: String): Drawable? {
-        if (packResources == null || currentPack == null) return null
-        val resId = packResources!!.getIdentifier(drawableName, "drawable", currentPack)
         if (resId != 0) {
             return try {
-                ResourcesCompat.getDrawable(packResources!!, resId, null)
+                ResourcesCompat.getDrawable(pack.res, resId, null)
             } catch (e: Exception) {
                 null
             }
@@ -178,15 +202,12 @@ class IconPackManager private constructor(private val context: Context) {
     }
 
     fun getAvailableIcons(context: Context): List<IconEntry> {
-        val prefPack = LauncherPreferences.theme().iconPack()
-        if (prefPack != currentPack) {
-            setIconPack(prefPack)
-        }
+        val pack = currentPack()
 
         val list = mutableListOf<IconEntry>()
         val pm = context.packageManager
 
-        for ((comp, drawableName) in drawablesByComponent) {
+        for ((comp, drawableName) in pack?.map.orEmpty()) {
             val label = try {
                 val activityInfo = pm.getActivityInfo(comp, 0)
                 activityInfo.loadLabel(pm).toString()

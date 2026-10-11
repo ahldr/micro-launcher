@@ -36,6 +36,8 @@ class ListFragmentApps : Fragment(), UIObject {
         SharedPreferences.OnSharedPreferenceChangeListener { _, pref ->
             // A null key means the whole preference store changed, so refresh in that case too.
             if (pref == null || affectsAppList(pref)) {
+                // the filter caches its base list; drop it since a relevant preference changed
+                appsRecyclerAdapter.invalidateAppFilter()
                 appsRecyclerAdapter.updateAppsList()
             }
             if (pref == LauncherPreferences.list().keys().gridColumns() || pref == LauncherPreferences.list().keys().layout()) {
@@ -48,10 +50,11 @@ class ListFragmentApps : Fragment(), UIObject {
     /**
      * Whether a changed preference can alter which apps are listed or how they are sorted:
      * app visibility/favourites/names/icons (`apps.*`), gesture bindings used by
-     * "hide bound apps" (`action.*`) and list layout options (`list.*`).
+     * "hide bound apps" (`action.*`, `enabled_gestures.*`) and list layout options (`list.*`).
      */
     private fun affectsAppList(key: String): Boolean =
         key.startsWith("apps.") || key.startsWith("action.") || key.startsWith("list.")
+                || key.startsWith("enabled_gestures.")
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
