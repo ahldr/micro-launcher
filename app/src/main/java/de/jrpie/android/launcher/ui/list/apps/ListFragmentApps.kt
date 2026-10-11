@@ -132,9 +132,15 @@ class ListFragmentApps : Fragment(), UIObject {
             androidx.appcompat.widget.SearchView.OnQueryTextListener {
 
             override fun onQueryTextSubmit(query: String): Boolean {
-                appsRecyclerAdapter.setSearchString(query)
+                val searchWeb = LauncherPreferences.functionality().searchWeb()
+                // the list is updated asynchronously; select once the filtered list is shown
+                appsRecyclerAdapter.setSearchString(query) {
+                    if (!searchWeb) {
+                        appsRecyclerAdapter.selectItem(0)
+                    }
+                }
 
-                if (LauncherPreferences.functionality().searchWeb()) {
+                if (searchWeb) {
                     val i = Intent(Intent.ACTION_WEB_SEARCH).putExtra("query", query)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     try {
@@ -146,9 +152,6 @@ class ListFragmentApps : Fragment(), UIObject {
                             Toast.LENGTH_LONG
                         ).show()
                     }
-
-                } else {
-                    appsRecyclerAdapter.selectItem(0)
                 }
                 return true
             }

@@ -1,6 +1,5 @@
 package de.jrpie.android.launcher.ui.list.apps
 
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Service
 import android.content.pm.LauncherApps
@@ -15,6 +14,8 @@ import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.lifecycle.LifecycleOwner
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import de.jrpie.android.launcher.Application
 import de.jrpie.android.launcher.R
@@ -41,7 +42,6 @@ import de.jrpie.android.launcher.ui.transformMonochrome
  * @param intention - why the list is displayed ("view", "pick")
  * @param forGesture - the action which an app is chosen for (when the intention is "pick")
  */
-@SuppressLint("NotifyDataSetChanged")
 class AppsRecyclerAdapter(
     val activity: Activity,
     lifecycleOwner: LifecycleOwner,
@@ -50,13 +50,13 @@ class AppsRecyclerAdapter(
     private val forGesture: String? = "",
     private var appFilter: AppFilter = AppFilter(activity, ""),
     private val layout: ListLayout,
-    private val nameFormat: AppNameFormat
+    private val nameFormat: AppNameFormat,
+    private val diffState: AppDiffState = AppDiffState()
 ) :
-    RecyclerView.Adapter<AppsRecyclerAdapter.ViewHolder>() {
+    ListAdapter<AbstractDetailedAppInfo, AppsRecyclerAdapter.ViewHolder>(AppDiffCallback(diffState)) {
 
 
     private val apps = (activity.applicationContext as Application).apps
-    private val appsListDisplayed: MutableList<AbstractDetailedAppInfo> = mutableListOf()
     private val theme = LauncherPreferences.theme()
     private val colorTheme = theme.colorTheme()
     private val grayscale = colorTheme.monochromeIcons()
@@ -91,7 +91,7 @@ class AppsRecyclerAdapter(
         override fun onLongClick(v: View): Boolean {
             val pos = bindingAdapterPosition
             if (pos == RecyclerView.NO_POSITION) return false
-            return showOptionsPopup(this, appsListDisplayed[pos])
+            return showOptionsPopup(this, getItem(pos))
         }
 
         init {
@@ -108,7 +108,7 @@ class AppsRecyclerAdapter(
 
 
     override fun onBindViewHolder(viewHolder: ViewHolder, i: Int) {
-        val appInfo = appsListDisplayed[i]
+        val appInfo = getItem(i)
         val appLabel = appInfo.getCustomLabel(activity)
 
         val appIcon = appInfo.getIcon(activity)
@@ -237,10 +237,6 @@ class AppsRecyclerAdapter(
         return true
     }
 
-    override fun getItemCount(): Int {
-        return appsListDisplayed.size
-    }
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
         val view: View = inflater.inflate(layout.layoutResource, parent, false)
@@ -249,7 +245,7 @@ class AppsRecyclerAdapter(
     }
 
     fun selectItem(pos: Int, rect: Rect = Rect()) {
-        val appInfo = appsListDisplayed.getOrNull(pos) ?: return
+        val appInfo = currentList.getOrNull(pos) ?: return
         when (intention) {
             AbstractListActivity.Companion.Intention.VIEW -> {
                 appInfo.getAction().invoke(activity, rect)
@@ -264,41 +260,48 @@ class AppsRecyclerAdapter(
         }
     }
 
-    fun updateAppsList(triggerAutoLaunch: Boolean = false) {
-        appsListDisplayed.clear()
+    /**
+     * @param onCommitted called on the main thread once the new list is displayed
+     */
+    fun updateAppsList(triggerAutoLaunch: Boolean = false, onCommitted: () -> Unit = {}) {
+        val newList = apps.value?.let { appFilter(it) } ?: emptyList()
         badgedLabelCache.clear()
-        apps.value?.let { appsListDisplayed.addAll(appFilter(it)) }
+        // labels are compared by the diff callback, see [AppDiffCallback]
+        val newLabels = newList.associate { it.getRawInfo() to it.getCustomLabel(activity) }
+        diffState.newLabels = newLabels
 
-        if (triggerAutoLaunch &&
-            appsListDisplayed.size == 1
-            && intention == AbstractListActivity.Companion.Intention.VIEW
-            && !disableAutoLaunch
-            && LauncherPreferences.functionality().searchAutoLaunch()
-        ) {
-            val app = appsListDisplayed[0]
-            app.getAction().invoke(activity)
+        // the commit callback runs after the new list was applied, so currentList is up to date
+        submitList(newList) {
+            diffState.displayedLabels = newLabels
+            if (triggerAutoLaunch &&
+                currentList.size == 1
+                && intention == AbstractListActivity.Companion.Intention.VIEW
+                && !disableAutoLaunch
+                && LauncherPreferences.functionality().searchAutoLaunch()
+            ) {
+                val app = currentList[0]
+                app.getAction().invoke(activity)
 
-            val inputMethodManager =
-                activity.getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
-            // use the token of an attached view; a new View has no window token
-            inputMethodManager.hideSoftInputFromWindow(root.windowToken, 0)
+                val inputMethodManager =
+                    activity.getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
+                // use the token of an attached view; a new View has no window token
+                inputMethodManager.hideSoftInputFromWindow(root.windowToken, 0)
 
-            // clear the query so returning to the drawer doesn't re-trigger auto-launch
-            appFilter.query = ""
-            root.findViewById<androidx.appcompat.widget.SearchView>(R.id.list_apps_searchview)
-                ?.setQuery("", false)
+                // clear the query so returning to the drawer doesn't re-trigger auto-launch
+                appFilter.query = ""
+                root.findViewById<androidx.appcompat.widget.SearchView>(R.id.list_apps_searchview)
+                    ?.setQuery("", false)
+            }
+            onCommitted()
         }
-
-        notifyDataSetChanged()
     }
 
     /**
      * The function [setSearchString] is used to search elements within this [RecyclerView].
      */
-    fun setSearchString(search: String) {
+    fun setSearchString(search: String, onCommitted: () -> Unit = {}) {
         appFilter.query = search
-        updateAppsList(true)
-
+        updateAppsList(true, onCommitted)
     }
 
     /**
@@ -313,4 +316,34 @@ class AppsRecyclerAdapter(
         appFilter.favoritesVisibility = v
         updateAppsList()
     }
+}
+
+/**
+ * Custom labels as they were when the displayed list was submitted ([displayedLabels]) and as
+ * they are for the list being submitted ([newLabels]). Items are not recreated when a label
+ * changes, so the labels have to be compared by value.
+ */
+class AppDiffState {
+    @Volatile
+    var displayedLabels: Map<AbstractAppInfo, String> = emptyMap()
+
+    @Volatile
+    var newLabels: Map<AbstractAppInfo, String> = emptyMap()
+}
+
+class AppDiffCallback(private val state: AppDiffState) :
+    DiffUtil.ItemCallback<AbstractDetailedAppInfo>() {
+    override fun areItemsTheSame(
+        oldItem: AbstractDetailedAppInfo,
+        newItem: AbstractDetailedAppInfo
+    ): Boolean = oldItem.getRawInfo() == newItem.getRawInfo()
+
+    // Apps (and with them their icons) are recreated when the app list reloads, so a different
+    // instance counts as changed content. This avoids calling getIcon(), which loads
+    // icons lazily. A changed custom label is detected using the label snapshots.
+    override fun areContentsTheSame(
+        oldItem: AbstractDetailedAppInfo,
+        newItem: AbstractDetailedAppInfo
+    ): Boolean = oldItem === newItem &&
+            state.displayedLabels[oldItem.getRawInfo()] == state.newLabels[newItem.getRawInfo()]
 }
