@@ -7,9 +7,11 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.widget.SearchView
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import de.jrpie.android.launcher.Application
@@ -30,6 +32,10 @@ import de.jrpie.android.launcher.widgets.bindAppWidgetOrRequestPermission
 import de.jrpie.android.launcher.widgets.generateInternalId
 import de.jrpie.android.launcher.widgets.getAppWidgetProviders
 import de.jrpie.android.launcher.widgets.updateWidget
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 
 private const val REQUEST_WIDGET_PERMISSION = 29
@@ -70,7 +76,14 @@ class SelectWidgetActivity : UIObjectActivity() {
                 updateWidget(
                     ClockWidget(
                         generateInternalId(),
-                        WidgetPosition(0, 4, 12, 3),
+                        WidgetPosition.findFreeSpace(
+                            WidgetPanel.byId(widgetPanelId),
+                            12,
+                            3
+                        ) {
+                            Toast.makeText(this, R.string.widget_no_free_space, Toast.LENGTH_LONG)
+                                .show()
+                        },
                         widgetPanelId
                     )
                 )
@@ -132,6 +145,15 @@ class SelectWidgetActivity : UIObjectActivity() {
                 return false
             }
         })
+
+        // Querying the providers is expensive, so do it off the main thread.
+        // The list stays empty until it arrives.
+        lifecycleScope.launch {
+            val providers = withContext(Dispatchers.IO) {
+                getAppWidgetProviders(this@SelectWidgetActivity)
+            }
+            viewAdapter.setProviders(providers)
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -152,8 +174,8 @@ class SelectWidgetActivity : UIObjectActivity() {
         private val theme = LauncherPreferences.theme()
         private val colorTheme = theme.colorTheme()
         private val grayscale = colorTheme.monochromeIcons()
-        private val allWidgets = getAppWidgetProviders(this@SelectWidgetActivity)
-        private var widgets = allWidgets
+        private var allWidgets: List<LauncherWidgetProvider> = emptyList()
+        private var widgets: List<LauncherWidgetProvider> = emptyList()
         private val filter = WidgetProviderFilter("", false)
 
         var sortAlphabetical: Boolean
@@ -170,6 +192,11 @@ class SelectWidgetActivity : UIObjectActivity() {
                 updateWidgetList()
             }
 
+        fun setProviders(providers: List<LauncherWidgetProvider>) {
+            allWidgets = providers
+            updateWidgetList()
+        }
+
         private fun updateWidgetList() {
             widgets = filter(allWidgets)
             @Suppress("NotifyDataSetChanged")
@@ -183,6 +210,11 @@ class SelectWidgetActivity : UIObjectActivity() {
             var iconView: ImageView = itemView.findViewById(R.id.list_widgets_row_icon)
             var previewView: ImageView = itemView.findViewById(R.id.list_widgets_row_preview)
 
+            /** The provider currently shown by this holder. */
+            var boundProvider: LauncherWidgetProvider? = null
+
+            /** Loads the images of [boundProvider]. */
+            var imageJob: Job? = null
 
             override fun onClick(v: View) {
                 tryBindWidget(widgets[bindingAdapterPosition])
@@ -205,10 +237,37 @@ class SelectWidgetActivity : UIObjectActivity() {
                     View.GONE
                 }
 
-            viewHolder.iconView.setImageDrawable(widgets[i].icon)
+            val provider = widgets[i]
+            viewHolder.imageJob?.cancel()
+            viewHolder.imageJob = null
+            viewHolder.boundProvider = provider
+
+            if (provider.imagesLoaded) {
+                bindImages(viewHolder, provider)
+            } else {
+                // placeholder until the images are loaded
+                viewHolder.iconView.setImageDrawable(null)
+                viewHolder.previewView.setImageDrawable(null)
+                viewHolder.previewView.visibility = View.GONE
+                viewHolder.imageJob = lifecycleScope.launch {
+                    withContext(Dispatchers.IO) {
+                        // initializes the lazy properties
+                        provider.icon
+                        provider.previewImage
+                    }
+                    // the holder may have been recycled for another provider in the meantime
+                    if (viewHolder.boundProvider === provider) {
+                        bindImages(viewHolder, provider)
+                    }
+                }
+            }
+        }
+
+        private fun bindImages(viewHolder: ViewHolder, provider: LauncherWidgetProvider) {
+            viewHolder.iconView.setImageDrawable(provider.icon)
             viewHolder.iconView.transformMonochrome(grayscale, colorTheme)
 
-            val preview = widgets[i].previewImage
+            val preview = provider.previewImage
             viewHolder.previewView.setImageDrawable(preview)
             viewHolder.previewView.visibility =
                 if (preview != null) {
@@ -220,6 +279,12 @@ class SelectWidgetActivity : UIObjectActivity() {
             viewHolder.previewView.transformMonochrome(grayscale, colorTheme)
 
             viewHolder.previewView.requestLayout()
+        }
+
+        override fun onViewRecycled(holder: ViewHolder) {
+            holder.imageJob?.cancel()
+            holder.imageJob = null
+            holder.boundProvider = null
         }
 
         override fun getItemCount(): Int {

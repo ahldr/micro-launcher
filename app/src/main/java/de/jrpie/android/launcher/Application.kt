@@ -15,6 +15,8 @@ import android.os.UserHandle
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.MutableLiveData
 import androidx.preference.PreferenceManager
+import de.jrpie.android.launcher.actions.Action
+import de.jrpie.android.launcher.actions.Gesture
 import de.jrpie.android.launcher.actions.TorchManager
 import de.jrpie.android.launcher.apps.AbstractAppInfo
 import de.jrpie.android.launcher.apps.AbstractDetailedAppInfo
@@ -130,6 +132,16 @@ class Application : android.app.Application() {
         }
     }
 
+    // Keeps the decoded gesture action cache in sync with changes made through
+    // import, reset or any other path that bypasses Action.setActionForGesture.
+    private val actionCacheListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == null) {
+            Action.invalidateCache()
+        } else if (Gesture.byId(key) != null) {
+            Action.invalidateCache(key)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         // TODO  Error: Invalid resource ID 0x00000000.
@@ -167,6 +179,8 @@ class Application : android.app.Application() {
 
         LauncherPreferences.getSharedPreferences()
             .registerOnSharedPreferenceChangeListener(listener)
+        LauncherPreferences.getSharedPreferences()
+            .registerOnSharedPreferenceChangeListener(actionCacheListener)
 
 
         val launcherApps = getSystemService(LAUNCHER_APPS_SERVICE) as LauncherApps
@@ -189,7 +203,10 @@ class Application : android.app.Application() {
         }
 
         if (Build.VERSION.SDK_INT >= VERSION_CODES.N_MR1) {
-            removeUnusedShortcuts(this)
+            // Only binder calls and preference reads, so keep it off the main thread.
+            appScope.launch {
+                removeUnusedShortcuts(this@Application)
+            }
         }
         loadApps()
 
@@ -214,7 +231,13 @@ class Application : android.app.Application() {
             delay(150)
             val result = getApps(packageManager, applicationContext)
             ensureActive()
+            // show the labels right away, icons are resolved lazily
             apps.postValue(result)
+            preloadAppIcons(result, applicationContext) {
+                // post again so observers can pick up the icons of the first rows
+                ensureActive()
+                apps.postValue(result)
+            }
         }
     }
 }

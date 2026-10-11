@@ -7,11 +7,13 @@ import android.content.SharedPreferences
 import android.content.res.Resources
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import android.view.ViewGroup
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updateLayoutParams
 import de.jrpie.android.launcher.Application
+import de.jrpie.android.launcher.R
 import de.jrpie.android.launcher.databinding.ActivityManageWidgetsBinding
 import de.jrpie.android.launcher.preferences.LauncherPreferences
 import de.jrpie.android.launcher.ui.UIObject
@@ -162,7 +164,9 @@ class ManageWidgetsActivity : UIObject, Activity() {
             WidgetPanel.byId(panelId),
             max(3, (GRID_SIZE * (widgetInfo.minWidth) / display.width.toFloat()).roundToInt()),
             max(3, (GRID_SIZE * (widgetInfo.minHeight) / display.height.toFloat()).roundToInt())
-        )
+        ) {
+            Toast.makeText(this, R.string.widget_no_free_space, Toast.LENGTH_LONG).show()
+        }
 
         val widget = AppWidget(appWidgetId, position, panelId, widgetInfo)
         WidgetCache.invalidate()
@@ -174,8 +178,10 @@ class ManageWidgetsActivity : UIObject, Activity() {
     }
 
     private fun configureWidget(data: Intent) {
-        val extras = data.extras
-        val appWidgetId = extras!!.getInt(AppWidgetManager.EXTRA_APPWIDGET_ID, -1)
+        val appWidgetId = data.extras?.getInt(AppWidgetManager.EXTRA_APPWIDGET_ID, -1) ?: return
+        if (appWidgetId == -1) {
+            return
+        }
         val widget = AppWidget(appWidgetId, panelId = panelId)
         if (widget.isConfigurable(this)) {
             widget.configure(this, REQUEST_CREATE_APPWIDGET)
@@ -201,6 +207,10 @@ class ManageWidgetsActivity : UIObject, Activity() {
             }
 
             RESULT_CANCELED -> {
+                if (requestCode == REQUEST_RECONFIGURE_APPWIDGET) {
+                    // cancelling a reconfiguration must not delete the existing widget
+                    return
+                }
                 val appWidgetId =
                     data.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, -1)
                 if (appWidgetId != -1) {
