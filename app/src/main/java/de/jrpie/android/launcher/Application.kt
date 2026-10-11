@@ -177,7 +177,10 @@ class Application : android.app.Application() {
         }
 
         if (Build.VERSION.SDK_INT >= VERSION_CODES.N_MR1) {
-            removeUnusedShortcuts(this)
+            // Only binder calls and preference reads, so keep it off the main thread.
+            appScope.launch {
+                removeUnusedShortcuts(this@Application)
+            }
         }
         loadApps()
 
