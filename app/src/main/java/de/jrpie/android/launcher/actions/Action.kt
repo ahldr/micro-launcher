@@ -14,6 +14,7 @@ import de.jrpie.android.launcher.preferences.LauncherPreferences
 import de.jrpie.android.launcher.ui.list.SelectActionActivity
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.util.concurrent.ConcurrentHashMap
 
 
 /**
@@ -41,12 +42,32 @@ sealed interface Action {
 
     companion object {
 
+        /** Wraps a decoded action so that a decoded `null` (no action bound) can be cached too. */
+        private class CachedAction(val action: Action?)
+
+        /** Decoded actions by gesture id, to avoid parsing JSON on every [forGesture] call. */
+        private val actionCache = ConcurrentHashMap<String, CachedAction>()
+
+        /** Drops the cached action for the preference [key]. */
+        fun invalidateCache(key: String) {
+            actionCache.remove(key)
+        }
+
+        /** Drops all cached actions. */
+        fun invalidateCache() {
+            actionCache.clear()
+        }
+
         fun forGesture(gesture: Gesture): Action? {
             val id = gesture.id
 
+            actionCache[id]?.let { return it.action }
+
             val preferences = LauncherPreferences.getSharedPreferences()
             val json = preferences.getString(id, "null")!!
-            return Json.decodeFromString(json)
+            val action: Action? = Json.decodeFromString(json)
+            actionCache[id] = CachedAction(action)
+            return action
         }
 
         fun resetToDefaultActions(context: Context) {
@@ -67,6 +88,7 @@ sealed interface Action {
                         }
                 }
             }
+            invalidateCache()
         }
 
         fun setActionForGesture(gesture: Gesture, action: Action?) {
@@ -77,12 +99,14 @@ sealed interface Action {
             LauncherPreferences.getSharedPreferences().edit {
                 action.bindToGesture(this, gesture.id)
             }
+            invalidateCache(gesture.id)
         }
 
         fun clearActionForGesture(gesture: Gesture) {
             LauncherPreferences.getSharedPreferences().edit {
                 remove(gesture.id)
             }
+            invalidateCache(gesture.id)
         }
 
         fun launch(
