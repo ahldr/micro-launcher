@@ -1,8 +1,8 @@
 package de.jrpie.android.launcher.ui.list.apps
 
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Service
+import android.content.Context
 import android.content.pm.LauncherApps
 import android.graphics.Rect
 import android.graphics.drawable.DrawableWrapper
@@ -15,6 +15,8 @@ import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.lifecycle.LifecycleOwner
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import de.jrpie.android.launcher.Application
 import de.jrpie.android.launcher.R
@@ -40,7 +42,6 @@ import de.jrpie.android.launcher.ui.transformMonochrome
  * @param intention - why the list is displayed ("view", "pick")
  * @param forGesture - the action which an app is chosen for (when the intention is "pick")
  */
-@SuppressLint("NotifyDataSetChanged")
 class AppsRecyclerAdapter(
     val activity: Activity,
     lifecycleOwner: LifecycleOwner,
@@ -51,11 +52,10 @@ class AppsRecyclerAdapter(
     private val layout: ListLayout,
     private val nameFormat: AppNameFormat
 ) :
-    RecyclerView.Adapter<AppsRecyclerAdapter.ViewHolder>() {
+    ListAdapter<AbstractDetailedAppInfo, AppsRecyclerAdapter.ViewHolder>(diffCallback(activity)) {
 
 
     private val apps = (activity.applicationContext as Application).apps
-    private val appsListDisplayed: MutableList<AbstractDetailedAppInfo> = mutableListOf()
     private val theme = LauncherPreferences.theme()
     private val colorTheme = theme.colorTheme()
     private val grayscale = colorTheme.monochromeIcons()
@@ -70,6 +70,24 @@ class AppsRecyclerAdapter(
         updateAppsList()
     }
 
+
+    companion object {
+        private fun diffCallback(context: Context) =
+            object : DiffUtil.ItemCallback<AbstractDetailedAppInfo>() {
+                override fun areItemsTheSame(
+                    oldItem: AbstractDetailedAppInfo,
+                    newItem: AbstractDetailedAppInfo
+                ): Boolean = oldItem.getRawInfo() == newItem.getRawInfo()
+
+                // Icons are recreated when apps reload, so a different icon instance
+                // must count as changed content.
+                override fun areContentsTheSame(
+                    oldItem: AbstractDetailedAppInfo,
+                    newItem: AbstractDetailedAppInfo
+                ): Boolean = oldItem.getCustomLabel(context) == newItem.getCustomLabel(context) &&
+                        oldItem.getIcon(context) === newItem.getIcon(context)
+            }
+    }
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView),
         View.OnClickListener {
@@ -89,9 +107,9 @@ class AppsRecyclerAdapter(
 
 
     override fun onBindViewHolder(viewHolder: ViewHolder, i: Int) {
-        var appLabel = appsListDisplayed[i].getCustomLabel(activity)
+        var appLabel = getItem(i).getCustomLabel(activity)
 
-        val appIcon = appsListDisplayed[i].getIcon(activity)
+        val appIcon = getItem(i).getIcon(activity)
 
         viewHolder.img.transformMonochrome(grayscale, colorTheme)
         viewHolder.img.setImageDrawable(appIcon.constantState?.newDrawable() ?: appIcon)
@@ -99,7 +117,7 @@ class AppsRecyclerAdapter(
         if (layout.useBadgedText) {
             appLabel = activity.packageManager.getUserBadgedLabel(
                 appLabel,
-                appsListDisplayed[i].getUser(activity)
+                getItem(i).getUser(activity)
             ).toString()
         }
         viewHolder.textView.text = nameFormat.format(appLabel)
@@ -110,13 +128,13 @@ class AppsRecyclerAdapter(
             viewHolder.textView.setOnLongClickListener {
                 showOptionsPopup(
                     viewHolder,
-                    appsListDisplayed[i]
+                    getItem(i)
                 )
             }
             viewHolder.img.setOnLongClickListener {
                 showOptionsPopup(
                     viewHolder,
-                    appsListDisplayed[i]
+                    getItem(i)
                 )
             }
             // ensure onClicks are actually caught
@@ -228,10 +246,6 @@ class AppsRecyclerAdapter(
         return true
     }
 
-    override fun getItemCount(): Int {
-        return appsListDisplayed.size
-    }
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
         val view: View = inflater.inflate(layout.layoutResource, parent, false)
@@ -240,7 +254,7 @@ class AppsRecyclerAdapter(
     }
 
     fun selectItem(pos: Int, rect: Rect = Rect()) {
-        val appInfo = appsListDisplayed.getOrNull(pos) ?: return
+        val appInfo = currentList.getOrNull(pos) ?: return
         when (intention) {
             AbstractListActivity.Companion.Intention.VIEW -> {
                 appInfo.getAction().invoke(activity, rect)
@@ -255,40 +269,43 @@ class AppsRecyclerAdapter(
         }
     }
 
-    fun updateAppsList(triggerAutoLaunch: Boolean = false) {
-        appsListDisplayed.clear()
-        apps.value?.let { appsListDisplayed.addAll(appFilter(it)) }
+    /**
+     * @param onCommitted called on the main thread once the new list is displayed
+     */
+    fun updateAppsList(triggerAutoLaunch: Boolean = false, onCommitted: () -> Unit = {}) {
+        val newList = apps.value?.let { appFilter(it) } ?: emptyList()
 
-        if (triggerAutoLaunch &&
-            appsListDisplayed.size == 1
-            && intention == AbstractListActivity.Companion.Intention.VIEW
-            && !disableAutoLaunch
-            && LauncherPreferences.functionality().searchAutoLaunch()
-        ) {
-            val app = appsListDisplayed[0]
-            app.getAction().invoke(activity)
+        // the commit callback runs after the new list was applied, so currentList is up to date
+        submitList(newList) {
+            if (triggerAutoLaunch &&
+                currentList.size == 1
+                && intention == AbstractListActivity.Companion.Intention.VIEW
+                && !disableAutoLaunch
+                && LauncherPreferences.functionality().searchAutoLaunch()
+            ) {
+                val app = currentList[0]
+                app.getAction().invoke(activity)
 
-            val inputMethodManager =
-                activity.getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
-            // use the token of an attached view; a new View has no window token
-            inputMethodManager.hideSoftInputFromWindow(root.windowToken, 0)
+                val inputMethodManager =
+                    activity.getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
+                // use the token of an attached view; a new View has no window token
+                inputMethodManager.hideSoftInputFromWindow(root.windowToken, 0)
 
-            // clear the query so returning to the drawer doesn't re-trigger auto-launch
-            appFilter.query = ""
-            root.findViewById<androidx.appcompat.widget.SearchView>(R.id.list_apps_searchview)
-                ?.setQuery("", false)
+                // clear the query so returning to the drawer doesn't re-trigger auto-launch
+                appFilter.query = ""
+                root.findViewById<androidx.appcompat.widget.SearchView>(R.id.list_apps_searchview)
+                    ?.setQuery("", false)
+            }
+            onCommitted()
         }
-
-        notifyDataSetChanged()
     }
 
     /**
      * The function [setSearchString] is used to search elements within this [RecyclerView].
      */
-    fun setSearchString(search: String) {
+    fun setSearchString(search: String, onCommitted: () -> Unit = {}) {
         appFilter.query = search
-        updateAppsList(true)
-
+        updateAppsList(true, onCommitted)
     }
 
     fun setFavoritesVisibility(v: AppFilter.Companion.AppSetVisibility) {
