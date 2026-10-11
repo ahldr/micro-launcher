@@ -14,7 +14,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.LifecycleOwner
 import androidx.recyclerview.widget.RecyclerView
 import de.jrpie.android.launcher.Application
 import de.jrpie.android.launcher.R
@@ -36,12 +36,14 @@ import de.jrpie.android.launcher.ui.transformMonochrome
  * The apps details are represented by [AppInfo].
  *
  * @param activity - the activity this is in
+ * @param lifecycleOwner - scope of the observer on the app list (e.g. the fragment's view lifecycle)
  * @param intention - why the list is displayed ("view", "pick")
  * @param forGesture - the action which an app is chosen for (when the intention is "pick")
  */
 @SuppressLint("NotifyDataSetChanged")
 class AppsRecyclerAdapter(
     val activity: Activity,
+    lifecycleOwner: LifecycleOwner,
     val root: View,
     private val intention: AbstractListActivity.Companion.Intention = AbstractListActivity.Companion.Intention.VIEW,
     private val forGesture: String? = "",
@@ -62,7 +64,7 @@ class AppsRecyclerAdapter(
     var disableAutoLaunch: Boolean = false
 
     init {
-        apps.observe(this.activity as AppCompatActivity) {
+        apps.observe(lifecycleOwner) {
             updateAppsList()
         }
         updateAppsList()

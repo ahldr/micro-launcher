@@ -78,12 +78,16 @@ class ListFragmentApps : Fragment(), UIObject {
 
     override fun setOnClicks() {}
 
-    override fun adjustLayout() {
+    // Adapter, layout manager and listeners are set up once per view in onViewCreated()
+    override fun adjustLayout() {}
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
         val listActivity = (activity as? AbstractListActivity) ?: return
 
         appsRecyclerAdapter =
             AppsRecyclerAdapter(
-                listActivity, binding.root, listActivity.intention, listActivity.forGesture,
+                listActivity, viewLifecycleOwner, binding.root, listActivity.intention, listActivity.forGesture,
                 appFilter = AppFilter(
                     requireContext(),
                     "",
