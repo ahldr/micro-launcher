@@ -75,6 +75,9 @@ fun getAppWidgetProviders(context: Context): List<LauncherWidgetProvider> {
 }
 
 fun updateWidget(widget: Widget) {
+    // Invalidate before writing: preference listeners which run during the write
+    // must not see the old widgets.
+    WidgetCache.invalidate()
     LauncherPreferences.widgets().widgets(
         (LauncherPreferences.widgets().widgets() ?: setOf())
             .minus(widget)

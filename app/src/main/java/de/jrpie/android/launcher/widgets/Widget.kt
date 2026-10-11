@@ -32,6 +32,7 @@ sealed class Widget {
             context.getAppWidgetHost().deleteAppWidgetId(id)
         }
 
+        WidgetCache.invalidate()
         LauncherPreferences.widgets().widgets(
             LauncherPreferences.widgets().widgets()?.also {
                 it.remove(this)
@@ -51,16 +52,24 @@ sealed class Widget {
         return Json.encodeToString(serializer(), this)
     }
 
+    /**
+     * @return an independent copy of this widget (including its [position]).
+     */
+    fun copy(): Widget {
+        return deserialize(serialize())
+    }
+
     companion object {
         fun deserialize(serialized: String): Widget {
             return Json.decodeFromString(serialized)
         }
 
+        /**
+         * @return a copy of the stored widget. Changes to it are only persisted
+         * by passing it to [updateWidget].
+         */
         fun byId(id: Int): Widget? {
-            // TODO: do some caching
-            return LauncherPreferences.widgets().widgets().firstOrNull {
-                it.id == id
-            }
+            return WidgetCache.get(id)
         }
     }
 }
