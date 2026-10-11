@@ -11,6 +11,9 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: write # needed to create the pre-release
+
     steps:
     - uses: actions/checkout@v4
     - name: set up JDK 17
@@ -24,9 +27,15 @@ jobs:
       run: chmod +x gradlew
     - name: Read Debug Keystore
       if: github.ref == 'refs/heads/master'
+      # If the secret is not set (e.g. in a fork), an empty file would be written here and
+      # Gradle would fail to read it. Skip it so that Gradle generates its own debug keystore.
       run: |
-        mkdir -p ~/.config/.android/
-        echo "$ANDROID_DEBUG_KEYSTORE" | base64 -d > ~/.config/.android/debug.keystore
+        if [ -n "$ANDROID_DEBUG_KEYSTORE" ]; then
+          mkdir -p ~/.config/.android/
+          echo "$ANDROID_DEBUG_KEYSTORE" | base64 -d > ~/.config/.android/debug.keystore
+        else
+          echo "ANDROID_DEBUG_KEYSTORE is not set, using a generated debug keystore."
+        fi
       env:
         ANDROID_DEBUG_KEYSTORE: ${{ secrets.ANDROID_DEBUG_KEYSTORE }}
     - name: Build with Gradle
@@ -40,7 +49,8 @@ jobs:
 
     - name: Delete Old Pre-Release
       if: github.ref == 'refs/heads/master'
-      run: gh release delete pre-release --cleanup-tag
+      # there is no pre-release yet on the first run
+      run: gh release delete pre-release --cleanup-tag || true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Create Pre-Release
