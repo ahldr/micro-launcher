@@ -24,6 +24,10 @@ import de.jrpie.android.launcher.preferences.migratePreferencesToNewVersion
 import de.jrpie.android.launcher.preferences.resetPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
@@ -185,10 +189,20 @@ class Application : android.app.Application() {
             .also { customAppNames = it }
     }
 
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var loadJob: Job? = null
+
+    // May be called from binder threads (LauncherApps callbacks), hence synchronized.
+    @Synchronized
     private fun loadApps() {
         privateSpaceLocked.postValue(isPrivateSpaceLocked(this))
-        CoroutineScope(Dispatchers.Default).launch {
-            apps.postValue(getApps(packageManager, applicationContext))
+        loadJob?.cancel()
+        loadJob = appScope.launch {
+            // debounce bursts of package callbacks
+            delay(150)
+            val result = getApps(packageManager, applicationContext)
+            ensureActive()
+            apps.postValue(result)
         }
     }
 }
