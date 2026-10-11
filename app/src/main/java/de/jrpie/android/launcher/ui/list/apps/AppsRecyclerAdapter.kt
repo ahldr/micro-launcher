@@ -2,7 +2,6 @@ package de.jrpie.android.launcher.ui.list.apps
 
 import android.app.Activity
 import android.app.Service
-import android.content.Context
 import android.content.pm.LauncherApps
 import android.graphics.Rect
 import android.graphics.drawable.DrawableWrapper
@@ -22,6 +21,7 @@ import de.jrpie.android.launcher.Application
 import de.jrpie.android.launcher.R
 import de.jrpie.android.launcher.actions.Action
 import de.jrpie.android.launcher.actions.Gesture
+import de.jrpie.android.launcher.apps.AbstractAppInfo
 import de.jrpie.android.launcher.apps.AbstractDetailedAppInfo
 import de.jrpie.android.launcher.apps.AppFilter
 import de.jrpie.android.launcher.apps.AppInfo
@@ -50,15 +50,19 @@ class AppsRecyclerAdapter(
     private val forGesture: String? = "",
     private var appFilter: AppFilter = AppFilter(activity, ""),
     private val layout: ListLayout,
-    private val nameFormat: AppNameFormat
+    private val nameFormat: AppNameFormat,
+    private val diffState: AppDiffState = AppDiffState()
 ) :
-    ListAdapter<AbstractDetailedAppInfo, AppsRecyclerAdapter.ViewHolder>(diffCallback(activity)) {
+    ListAdapter<AbstractDetailedAppInfo, AppsRecyclerAdapter.ViewHolder>(AppDiffCallback(diffState)) {
 
 
     private val apps = (activity.applicationContext as Application).apps
     private val theme = LauncherPreferences.theme()
     private val colorTheme = theme.colorTheme()
     private val grayscale = colorTheme.monochromeIcons()
+
+    // user badged labels (work profile), keyed by raw app info; cleared when the list changes
+    private val badgedLabelCache = mutableMapOf<AbstractAppInfo, String>()
 
     // temporarily disable auto launch
     var disableAutoLaunch: Boolean = false
@@ -71,75 +75,62 @@ class AppsRecyclerAdapter(
     }
 
 
-    companion object {
-        private fun diffCallback(context: Context) =
-            object : DiffUtil.ItemCallback<AbstractDetailedAppInfo>() {
-                override fun areItemsTheSame(
-                    oldItem: AbstractDetailedAppInfo,
-                    newItem: AbstractDetailedAppInfo
-                ): Boolean = oldItem.getRawInfo() == newItem.getRawInfo()
-
-                // Icons are recreated when apps reload, so a different icon instance
-                // must count as changed content.
-                override fun areContentsTheSame(
-                    oldItem: AbstractDetailedAppInfo,
-                    newItem: AbstractDetailedAppInfo
-                ): Boolean = oldItem.getCustomLabel(context) == newItem.getCustomLabel(context) &&
-                        oldItem.getIcon(context) === newItem.getIcon(context)
-            }
-    }
-
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView),
-        View.OnClickListener {
+        View.OnClickListener, View.OnLongClickListener {
         var textView: TextView = itemView.findViewById(R.id.list_apps_row_name)
         var img: ImageView = itemView.findViewById(R.id.list_apps_row_icon)
 
         override fun onClick(v: View) {
+            if (bindingAdapterPosition == RecyclerView.NO_POSITION) return
             val rect = Rect()
             img.getGlobalVisibleRect(rect)
             selectItem(bindingAdapterPosition, rect)
         }
 
+        // decide when to show the options popup menu about
+        override fun onLongClick(v: View): Boolean {
+            val pos = bindingAdapterPosition
+            if (pos == RecyclerView.NO_POSITION) return false
+            return showOptionsPopup(this, getItem(pos))
+        }
+
         init {
             itemView.setOnClickListener(this)
+            if (intention == AbstractListActivity.Companion.Intention.VIEW) {
+                textView.setOnLongClickListener(this)
+                img.setOnLongClickListener(this)
+                // ensure onClicks are actually caught
+                textView.setOnClickListener(this)
+                img.setOnClickListener(this)
+            }
         }
     }
 
 
     override fun onBindViewHolder(viewHolder: ViewHolder, i: Int) {
-        var appLabel = getItem(i).getCustomLabel(activity)
+        val appInfo = getItem(i)
+        val appLabel = appInfo.getCustomLabel(activity)
 
-        val appIcon = getItem(i).getIcon(activity)
+        val appIcon = appInfo.getIcon(activity)
 
         viewHolder.img.transformMonochrome(grayscale, colorTheme)
-        viewHolder.img.setImageDrawable(appIcon.constantState?.newDrawable() ?: appIcon)
-
-        if (layout.useBadgedText) {
-            appLabel = activity.packageManager.getUserBadgedLabel(
-                appLabel,
-                getItem(i).getUser(activity)
-            ).toString()
+        // a Drawable must not be attached to two views, so a copy is made, but only when
+        // the view does not already show a copy of this source drawable
+        if (viewHolder.img.getTag(R.id.list_apps_row_icon_source) !== appIcon) {
+            viewHolder.img.setImageDrawable(appIcon.constantState?.newDrawable() ?: appIcon)
+            viewHolder.img.setTag(R.id.list_apps_row_icon_source, appIcon)
         }
-        viewHolder.textView.text = nameFormat.format(appLabel)
 
+        val label = if (layout.useBadgedText) badgedLabel(appInfo, appLabel) else appLabel
+        viewHolder.textView.text = nameFormat.format(label)
+    }
 
-        // decide when to show the options popup menu about
-        if (intention == AbstractListActivity.Companion.Intention.VIEW) {
-            viewHolder.textView.setOnLongClickListener {
-                showOptionsPopup(
-                    viewHolder,
-                    getItem(i)
-                )
-            }
-            viewHolder.img.setOnLongClickListener {
-                showOptionsPopup(
-                    viewHolder,
-                    getItem(i)
-                )
-            }
-            // ensure onClicks are actually caught
-            viewHolder.textView.setOnClickListener { viewHolder.onClick(viewHolder.textView) }
-            viewHolder.img.setOnClickListener { viewHolder.onClick(viewHolder.img) }
+    private fun badgedLabel(appInfo: AbstractDetailedAppInfo, label: String): String {
+        return badgedLabelCache.getOrPut(appInfo.getRawInfo()) {
+            activity.packageManager.getUserBadgedLabel(
+                label,
+                appInfo.getUser(activity)
+            ).toString()
         }
     }
 
@@ -274,9 +265,14 @@ class AppsRecyclerAdapter(
      */
     fun updateAppsList(triggerAutoLaunch: Boolean = false, onCommitted: () -> Unit = {}) {
         val newList = apps.value?.let { appFilter(it) } ?: emptyList()
+        badgedLabelCache.clear()
+        // labels are compared by the diff callback, see [AppDiffCallback]
+        val newLabels = newList.associate { it.getRawInfo() to it.getCustomLabel(activity) }
+        diffState.newLabels = newLabels
 
         // the commit callback runs after the new list was applied, so currentList is up to date
         submitList(newList) {
+            diffState.displayedLabels = newLabels
             if (triggerAutoLaunch &&
                 currentList.size == 1
                 && intention == AbstractListActivity.Companion.Intention.VIEW
@@ -308,8 +304,46 @@ class AppsRecyclerAdapter(
         updateAppsList(true, onCommitted)
     }
 
+    /**
+     * Drops the cached base list of the [AppFilter]. Call this before [updateAppsList]
+     * when a preference which affects the filtered list changed.
+     */
+    fun invalidateAppFilter() {
+        appFilter.invalidate()
+    }
+
     fun setFavoritesVisibility(v: AppFilter.Companion.AppSetVisibility) {
         appFilter.favoritesVisibility = v
         updateAppsList()
     }
+}
+
+/**
+ * Custom labels as they were when the displayed list was submitted ([displayedLabels]) and as
+ * they are for the list being submitted ([newLabels]). Items are not recreated when a label
+ * changes, so the labels have to be compared by value.
+ */
+class AppDiffState {
+    @Volatile
+    var displayedLabels: Map<AbstractAppInfo, String> = emptyMap()
+
+    @Volatile
+    var newLabels: Map<AbstractAppInfo, String> = emptyMap()
+}
+
+class AppDiffCallback(private val state: AppDiffState) :
+    DiffUtil.ItemCallback<AbstractDetailedAppInfo>() {
+    override fun areItemsTheSame(
+        oldItem: AbstractDetailedAppInfo,
+        newItem: AbstractDetailedAppInfo
+    ): Boolean = oldItem.getRawInfo() == newItem.getRawInfo()
+
+    // Apps (and with them their icons) are recreated when the app list reloads, so a different
+    // instance counts as changed content. This avoids calling getIcon(), which loads
+    // icons lazily. A changed custom label is detected using the label snapshots.
+    override fun areContentsTheSame(
+        oldItem: AbstractDetailedAppInfo,
+        newItem: AbstractDetailedAppInfo
+    ): Boolean = oldItem === newItem &&
+            state.displayedLabels[oldItem.getRawInfo()] == state.newLabels[newItem.getRawInfo()]
 }
