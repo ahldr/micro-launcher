@@ -86,21 +86,8 @@ class AppWidget(
         val view = activity.getAppWidgetHost()
             .createView(activity, this.id, providerInfo)
 
-        val dp = activity.resources.displayMetrics.density
-        val screenWidth = activity.resources.displayMetrics.widthPixels
-        val screenHeight = activity.resources.displayMetrics.heightPixels
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val absolutePosition = position.getAbsoluteRect(screenWidth, screenHeight)
-            view.updateAppWidgetSize(
-                Bundle.EMPTY,
-                listOf(
-                    SizeF(
-                        absolutePosition.width() / dp,
-                        absolutePosition.height() / dp
-                    )
-                )
-            )
-        }
+        // The size reported to the provider is kept up to date by
+        // WidgetContainerView.onLayout via updateSize().
         view.setPadding(0, 0, 0, 0)
         return view
     }
@@ -152,5 +139,25 @@ class AppWidget(
             requestCode,
             options
         )
+    }
+}
+
+/**
+ * Tells the provider of the app widget hosted in [view] how much space it gets.
+ *
+ * The size is derived from [AppWidget.position] and the size of the container
+ * ([containerWidth] x [containerHeight], in pixels), not from the display size.
+ */
+fun AppWidget.updateSize(view: AppWidgetHostView, containerWidth: Int, containerHeight: Int) {
+    val rect = position.getAbsoluteRect(containerWidth, containerHeight)
+    val density = view.resources.displayMetrics.density
+    val width = rect.width() / density
+    val height = rect.height() / density
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        view.updateAppWidgetSize(Bundle.EMPTY, listOf(SizeF(width, height)))
+    } else {
+        @Suppress("DEPRECATION")
+        view.updateAppWidgetSize(null, width.toInt(), height.toInt(), width.toInt(), height.toInt())
     }
 }

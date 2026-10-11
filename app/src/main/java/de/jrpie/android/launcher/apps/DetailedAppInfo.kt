@@ -5,6 +5,8 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherActivityInfo
 import android.graphics.drawable.Drawable
 import android.os.UserHandle
+import android.util.Log
+import de.jrpie.android.launcher.LOG_TAG
 import de.jrpie.android.launcher.actions.Action
 import de.jrpie.android.launcher.actions.AppAction
 import de.jrpie.android.launcher.icons.IconPackManager
@@ -13,19 +15,42 @@ import de.jrpie.android.launcher.preferences.LauncherPreferences
 
 /**
  * Stores information used to create [de.jrpie.android.launcher.ui.list.apps.AppsRecyclerAdapter] rows.
+ *
+ * When created from a [LauncherActivityInfo], the icon is not resolved up front
+ * (this decodes a bitmap or does an icon pack lookup), but on the first call to [getIcon],
+ * which may happen on any thread. The result is cached, so every later call returns the
+ * same [Drawable] instance.
  */
-class DetailedAppInfo(
+class DetailedAppInfo private constructor(
     private val app: AppInfo,
     private val label: CharSequence,
-    private val icon: Drawable,
+    preloadedIcon: Drawable?,
+    /** Used to resolve the icon when [preloadedIcon] is `null`. */
+    private val activityInfo: LauncherActivityInfo?,
+    /** Snapshot of the custom icon preference, used together with [activityInfo]. */
+    private val customIcons: Map<AbstractAppInfo, String>?,
     private val privateSpace: Boolean,
-    private val removable: Boolean = true,
+    private val removable: Boolean,
 ) : AbstractDetailedAppInfo {
+
+    @Volatile
+    private var icon: Drawable? = preloadedIcon
+
+    constructor(
+        app: AppInfo,
+        label: CharSequence,
+        icon: Drawable,
+        privateSpace: Boolean,
+        removable: Boolean = true,
+    ) : this(app, label, icon, null, null, privateSpace, removable)
 
     /**
      * Reads the icon preferences for this single app. When creating many instances, pass a
      * snapshot of the preferences with the constructor below instead.
      */
+    // context is no longer needed here since the icon is resolved lazily;
+    // the parameter is kept to leave the constructor signature unchanged.
+    @Suppress("UNUSED_PARAMETER")
     constructor(activityInfo: LauncherActivityInfo, private: Boolean, context: Context) : this(
         activityInfo,
         private,
@@ -34,9 +59,10 @@ class DetailedAppInfo(
     )
 
     /**
-     * [customIcons] is a snapshot of the custom icon preference. The icon pack must already be
-     * set on [IconPackManager] (see [getApps]).
+     * [customIcons] is a snapshot of the custom icon preference, so it is not read again for
+     * every app. The icon pack must already be set on [IconPackManager] (see [getApps]).
      */
+    @Suppress("UNUSED_PARAMETER")
     constructor(
         activityInfo: LauncherActivityInfo,
         private: Boolean,
@@ -49,15 +75,9 @@ class DetailedAppInfo(
             activityInfo.user.hashCode()
         ),
         activityInfo.label,
-        IconPackManager.getInstance(context).getIcon(
-            AppInfo(
-                activityInfo.applicationInfo.packageName,
-                activityInfo.name,
-                activityInfo.user.hashCode()
-            ),
-            activityInfo.componentName,
-            customIcons
-        ) ?: activityInfo.getBadgedIcon(0),
+        null,
+        activityInfo,
+        customIcons,
         private,
         // App can be uninstalled iff it is not a system app
         activityInfo.applicationInfo.flags.and(ApplicationInfo.FLAG_SYSTEM) == 0
@@ -68,8 +88,33 @@ class DetailedAppInfo(
         return label.toString()
     }
 
+    /**
+     * Returns the icon, resolving it first if this has not happened yet.
+     * Resolving can be slow; [de.jrpie.android.launcher.preloadAppIcons] does it in the
+     * background for the app list. Calling this on the main thread for an icon that was not
+     * resolved yet is still correct, it just loads the icon synchronously.
+     */
     override fun getIcon(context: Context): Drawable {
-        return icon
+        icon?.let { return it }
+        // Only one thread resolves a given icon, so all callers get the same instance.
+        return synchronized(this) {
+            icon ?: loadIcon(context)?.also { icon = it }
+        } ?: context.packageManager.defaultActivityIcon
+    }
+
+    /**
+     * Resolves the icon the same way the constructor used to do eagerly.
+     * Returns `null` if this fails, so that it is tried again on the next call.
+     */
+    private fun loadIcon(context: Context): Drawable? {
+        val info = activityInfo ?: return null
+        return try {
+            IconPackManager.getInstance(context).getIcon(app, info.componentName, customIcons)
+                ?: info.getBadgedIcon(0)
+        } catch (e: Exception) {
+            Log.w(LOG_TAG, "exception thrown while loading icon of $app", e)
+            null
+        }
     }
 
     override fun getRawInfo(): AppInfo {

@@ -20,6 +20,7 @@ import de.jrpie.android.launcher.Application
 import de.jrpie.android.launcher.R
 import de.jrpie.android.launcher.actions.Action
 import de.jrpie.android.launcher.actions.Gesture
+import de.jrpie.android.launcher.apps.AbstractAppInfo
 import de.jrpie.android.launcher.apps.AbstractDetailedAppInfo
 import de.jrpie.android.launcher.apps.AppFilter
 import de.jrpie.android.launcher.apps.AppInfo
@@ -60,6 +61,9 @@ class AppsRecyclerAdapter(
     private val colorTheme = theme.colorTheme()
     private val grayscale = colorTheme.monochromeIcons()
 
+    // user badged labels (work profile), keyed by raw app info; cleared when the list changes
+    private val badgedLabelCache = mutableMapOf<AbstractAppInfo, String>()
+
     // temporarily disable auto launch
     var disableAutoLaunch: Boolean = false
 
@@ -72,56 +76,61 @@ class AppsRecyclerAdapter(
 
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView),
-        View.OnClickListener {
+        View.OnClickListener, View.OnLongClickListener {
         var textView: TextView = itemView.findViewById(R.id.list_apps_row_name)
         var img: ImageView = itemView.findViewById(R.id.list_apps_row_icon)
 
         override fun onClick(v: View) {
+            if (bindingAdapterPosition == RecyclerView.NO_POSITION) return
             val rect = Rect()
             img.getGlobalVisibleRect(rect)
             selectItem(bindingAdapterPosition, rect)
         }
 
+        // decide when to show the options popup menu about
+        override fun onLongClick(v: View): Boolean {
+            val pos = bindingAdapterPosition
+            if (pos == RecyclerView.NO_POSITION) return false
+            return showOptionsPopup(this, appsListDisplayed[pos])
+        }
+
         init {
             itemView.setOnClickListener(this)
+            if (intention == AbstractListActivity.Companion.Intention.VIEW) {
+                textView.setOnLongClickListener(this)
+                img.setOnLongClickListener(this)
+                // ensure onClicks are actually caught
+                textView.setOnClickListener(this)
+                img.setOnClickListener(this)
+            }
         }
     }
 
 
     override fun onBindViewHolder(viewHolder: ViewHolder, i: Int) {
-        var appLabel = appsListDisplayed[i].getCustomLabel(activity)
+        val appInfo = appsListDisplayed[i]
+        val appLabel = appInfo.getCustomLabel(activity)
 
-        val appIcon = appsListDisplayed[i].getIcon(activity)
+        val appIcon = appInfo.getIcon(activity)
 
         viewHolder.img.transformMonochrome(grayscale, colorTheme)
-        viewHolder.img.setImageDrawable(appIcon.constantState?.newDrawable() ?: appIcon)
-
-        if (layout.useBadgedText) {
-            appLabel = activity.packageManager.getUserBadgedLabel(
-                appLabel,
-                appsListDisplayed[i].getUser(activity)
-            ).toString()
+        // a Drawable must not be attached to two views, so a copy is made, but only when
+        // the view does not already show a copy of this source drawable
+        if (viewHolder.img.getTag(R.id.list_apps_row_icon_source) !== appIcon) {
+            viewHolder.img.setImageDrawable(appIcon.constantState?.newDrawable() ?: appIcon)
+            viewHolder.img.setTag(R.id.list_apps_row_icon_source, appIcon)
         }
-        viewHolder.textView.text = nameFormat.format(appLabel)
 
+        val label = if (layout.useBadgedText) badgedLabel(appInfo, appLabel) else appLabel
+        viewHolder.textView.text = nameFormat.format(label)
+    }
 
-        // decide when to show the options popup menu about
-        if (intention == AbstractListActivity.Companion.Intention.VIEW) {
-            viewHolder.textView.setOnLongClickListener {
-                showOptionsPopup(
-                    viewHolder,
-                    appsListDisplayed[i]
-                )
-            }
-            viewHolder.img.setOnLongClickListener {
-                showOptionsPopup(
-                    viewHolder,
-                    appsListDisplayed[i]
-                )
-            }
-            // ensure onClicks are actually caught
-            viewHolder.textView.setOnClickListener { viewHolder.onClick(viewHolder.textView) }
-            viewHolder.img.setOnClickListener { viewHolder.onClick(viewHolder.img) }
+    private fun badgedLabel(appInfo: AbstractDetailedAppInfo, label: String): String {
+        return badgedLabelCache.getOrPut(appInfo.getRawInfo()) {
+            activity.packageManager.getUserBadgedLabel(
+                label,
+                appInfo.getUser(activity)
+            ).toString()
         }
     }
 
@@ -257,6 +266,7 @@ class AppsRecyclerAdapter(
 
     fun updateAppsList(triggerAutoLaunch: Boolean = false) {
         appsListDisplayed.clear()
+        badgedLabelCache.clear()
         apps.value?.let { appsListDisplayed.addAll(appFilter(it)) }
 
         if (triggerAutoLaunch &&
@@ -289,6 +299,14 @@ class AppsRecyclerAdapter(
         appFilter.query = search
         updateAppsList(true)
 
+    }
+
+    /**
+     * Drops the cached base list of the [AppFilter]. Call this before [updateAppsList]
+     * when a preference which affects the filtered list changed.
+     */
+    fun invalidateAppFilter() {
+        appFilter.invalidate()
     }
 
     fun setFavoritesVisibility(v: AppFilter.Companion.AppSetVisibility) {

@@ -34,6 +34,9 @@ import de.jrpie.android.launcher.apps.getPrivateSpaceUser
 import de.jrpie.android.launcher.apps.isPrivateSpaceSupported
 import de.jrpie.android.launcher.preferences.LauncherPreferences
 import de.jrpie.android.launcher.ui.tutorial.TutorialActivity
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import java.util.Locale
 
 
 const val LOG_TAG = "Launcher"
@@ -150,6 +153,9 @@ fun openTutorial(context: Context) {
 
 /**
  * Load all apps.
+ *
+ * Icons of the returned apps are resolved lazily (see [DetailedAppInfo.getIcon]),
+ * so this is fast enough to show the list right away. Use [preloadAppIcons] afterwards.
  */
 fun getApps(
     packageManager: PackageManager,
@@ -239,6 +245,50 @@ fun getApps(
     }
 
     return loadList
+}
+
+/**
+ * Number of icons resolved by [preloadAppIcons] before it reports the first batch,
+ * roughly the first few screens of the app list.
+ */
+const val ICON_PRELOAD_FIRST_BATCH = 50
+
+/**
+ * Resolves the icons of [apps] (as returned by [getApps]) so that the app list does not have to
+ * load them when showing a row. Icons are resolved roughly in the order of the app list:
+ * sorted by label, hidden apps last.
+ *
+ * Must not be called on the main thread. Stops when the calling coroutine is cancelled.
+ *
+ * @param onFirstBatchLoaded called once the icons of the first [ICON_PRELOAD_FIRST_BATCH] apps
+ *      (or all apps, if there are fewer) are resolved, before resolving the remaining ones.
+ */
+suspend fun preloadAppIcons(
+    apps: List<AbstractDetailedAppInfo>,
+    context: Context,
+    onFirstBatchLoaded: () -> Unit
+) {
+    if (apps.isEmpty()) {
+        return
+    }
+    val start = System.currentTimeMillis()
+
+    val hidden = LauncherPreferences.apps().hidden() ?: setOf()
+    val ordered = apps.sortedWith(
+        compareBy<AbstractDetailedAppInfo> { hidden.contains(it.getRawInfo()) }
+            .thenBy { it.getCustomLabel(context).lowercase(Locale.ROOT) }
+    )
+
+    ordered.forEachIndexed { i, app ->
+        currentCoroutineContext().ensureActive()
+        app.getIcon(context)
+        if (i + 1 == minOf(ICON_PRELOAD_FIRST_BATCH, ordered.size)) {
+            onFirstBatchLoaded()
+        }
+    }
+
+    val end = System.currentTimeMillis()
+    Log.i(LOG_TAG, "${ordered.size} icons loaded (${end - start}ms)")
 }
 
 /**

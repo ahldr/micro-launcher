@@ -34,6 +34,15 @@ class ListFragmentApps : Fragment(), UIObject {
 
     private var sharedPreferencesListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, pref ->
+            // the filter caches its base list; drop it if a relevant preference changed
+            if (pref == null
+                || pref.startsWith("apps.")
+                || pref.startsWith("action.")
+                || pref.startsWith("list.")
+                || pref.startsWith("enabled_gestures.")
+            ) {
+                appsRecyclerAdapter.invalidateAppFilter()
+            }
             appsRecyclerAdapter.updateAppsList()
             if (pref == LauncherPreferences.list().keys().gridColumns() || pref == LauncherPreferences.list().keys().layout()) {
                 binding.listAppsRview.layoutManager?.let {
