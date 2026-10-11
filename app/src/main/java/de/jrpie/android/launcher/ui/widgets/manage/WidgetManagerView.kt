@@ -18,6 +18,7 @@ import androidx.core.graphics.contains
 import androidx.core.graphics.minus
 import androidx.core.graphics.toRect
 import de.jrpie.android.launcher.ui.widgets.WidgetContainerView
+import de.jrpie.android.launcher.widgets.AppWidget
 import de.jrpie.android.launcher.widgets.GRID_SIZE
 import de.jrpie.android.launcher.widgets.Widget
 import de.jrpie.android.launcher.widgets.WidgetPanel
@@ -229,6 +230,15 @@ class WidgetManagerView(widgetPanelId: Int, context: Context, attrs: AttributeSe
         super.onDetachedFromWindow()
     }
 
+    /**
+     * Widgets without a view (e.g. because their app was uninstalled) get a placeholder.
+     * They are not deleted automatically, the app might only be temporarily unavailable.
+     */
+    private fun updateUnavailable(overlay: WidgetOverlayView, widget: Widget) {
+        overlay.unavailable = widgetViewById[widget.id] == null
+        overlay.unavailablePackage = (widget as? AppWidget)?.packageName
+    }
+
     override fun updateWidgets(activity: Activity, widgets: Collection<Widget>?) {
         super.updateWidgets(activity, widgets)
 
@@ -249,11 +259,13 @@ class WidgetManagerView(widgetPanelId: Int, context: Context, attrs: AttributeSe
                         layoutParams.position = widget.position
                     }
                     overlay.update(widget)
+                    updateUnavailable(overlay, widget)
                 } else {
                     WidgetOverlayView(activity).let {
                         it.widgetId = widget.id
                         addView(it, Companion.LayoutParams(widget.position))
                         overlayViewById[widget.id] = it
+                        updateUnavailable(it, widget)
                     }
                 }
             }

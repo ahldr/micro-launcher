@@ -76,30 +76,42 @@ data class WidgetPosition(var x: Short, var y: Short, var width: Short, var heig
             )
         }
 
+        /**
+         * Finds the first free spot for a widget of the given size, scanning row by row.
+         * If there is no free space, the widget is placed offset from the last widget of
+         * the panel (so it does not sit exactly on top of it) and [onNoFreeSpace] is called.
+         */
         fun findFreeSpace(
             widgetPanel: WidgetPanel?,
             minWidth: Int,
-            minHeight: Int
+            minHeight: Int,
+            onNoFreeSpace: (() -> Unit)? = null
         ): WidgetPosition {
             val rect = Rect(0, 0, minWidth, minHeight)
             if (widgetPanel == null) {
                 return WidgetPosition(rect)
             }
 
-            val widgets = widgetPanel.getWidgets().map { it.position.toRect() }
+            val panelWidgets = widgetPanel.getWidgets()
+            val widgets = panelWidgets.map { it.position.toRect() }
 
-            for (x in 0..<GRID_SIZE - minWidth) {
-                rect.left = x
-                rect.right = x + minWidth
-                for (y in 0..<GRID_SIZE - minHeight) {
-                    rect.top = y
-                    rect.bottom = y + minHeight
+            for (y in 0..GRID_SIZE - minHeight) {
+                rect.top = y
+                rect.bottom = y + minHeight
+                for (x in 0..GRID_SIZE - minWidth) {
+                    rect.left = x
+                    rect.right = x + minWidth
                     if (!widgets.any { Rect(it).intersect(rect) }) {
                         return WidgetPosition(rect)
                     }
                 }
             }
-            return WidgetPosition(0, 0, minWidth.toShort(), minHeight.toShort())
+
+            onNoFreeSpace?.invoke()
+            val last = panelWidgets.lastOrNull()?.position
+            val x = if (last == null) 0 else (last.x + 1).coerceIn(0, max(0, GRID_SIZE - minWidth))
+            val y = if (last == null) 0 else (last.y + 1).coerceIn(0, max(0, GRID_SIZE - minHeight))
+            return WidgetPosition(x.toShort(), y.toShort(), minWidth.toShort(), minHeight.toShort())
         }
     }
 }
