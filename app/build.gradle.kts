@@ -54,6 +54,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -137,6 +138,7 @@ dependencies {
     implementation(libs.androidx.gridlayout)
     implementation(libs.androidx.palette.ktx)
     implementation(libs.androidx.preference.ktx)
+    implementation(libs.androidx.profileinstaller)
     implementation(libs.androidx.recyclerview)
     implementation(libs.google.material)
     implementation(libs.kotlinx.serialization.json)

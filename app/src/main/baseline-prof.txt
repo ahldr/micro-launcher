@@ -1,0 +1,53 @@
+# Hand-written Baseline Profile for the launcher's hot startup and interaction paths.
+#
+# This is NOT a measured profile: it was written without a device, using wildcard rules
+# that cover every method of the classes involved in
+#   - cold start of the home screen         (Application, HomeActivity, UIObject,
+#                                            LauncherGestureActivity, WidgetContainerView)
+#   - swipe gesture detection               (TouchGestureDetector and its nested classes)
+#   - opening the app drawer, search, scroll (AppListActivity, AbstractListActivity,
+#                                            ListFragmentApps, AppsRecyclerAdapter, AppFilter)
+# Flags: H = hot, S = startup, P = post-startup, L = class is loaded at startup.
+# It can later be replaced by a profile generated with a macrobenchmark generator test.
+
+# --- Application and home screen ---
+Lde/jrpie/android/launcher/Application;
+HSPLde/jrpie/android/launcher/Application;->*(**)**
+Lde/jrpie/android/launcher/Application$*;
+HSPLde/jrpie/android/launcher/Application$*;->*(**)**
+Lde/jrpie/android/launcher/ui/HomeActivity;
+HSPLde/jrpie/android/launcher/ui/HomeActivity;->*(**)**
+Lde/jrpie/android/launcher/ui/UIObject;
+HSPLde/jrpie/android/launcher/ui/UIObject;->*(**)**
+Lde/jrpie/android/launcher/ui/UIObject*;
+HSPLde/jrpie/android/launcher/ui/UIObject*;->*(**)**
+Lde/jrpie/android/launcher/ui/util/LauncherGestureActivity;
+HSPLde/jrpie/android/launcher/ui/util/LauncherGestureActivity;->*(**)**
+Lde/jrpie/android/launcher/ui/widgets/WidgetContainerView;
+HSPLde/jrpie/android/launcher/ui/widgets/WidgetContainerView;->*(**)**
+Lde/jrpie/android/launcher/ui/widgets/WidgetContainerView$*;
+HSPLde/jrpie/android/launcher/ui/widgets/WidgetContainerView$*;->*(**)**
+
+# --- Gesture detection (runs on every touch event on the home screen) ---
+Lde/jrpie/android/launcher/ui/TouchGestureDetector;
+HSPLde/jrpie/android/launcher/ui/TouchGestureDetector;->*(**)**
+Lde/jrpie/android/launcher/ui/TouchGestureDetector$*;
+HSPLde/jrpie/android/launcher/ui/TouchGestureDetector$*;->*(**)**
+
+# --- App drawer: list, search and scrolling ---
+Lde/jrpie/android/launcher/ui/list/AppListActivity;
+HSPLde/jrpie/android/launcher/ui/list/AppListActivity;->*(**)**
+Lde/jrpie/android/launcher/ui/list/AbstractListActivity;
+HSPLde/jrpie/android/launcher/ui/list/AbstractListActivity;->*(**)**
+Lde/jrpie/android/launcher/ui/list/apps/ListFragmentApps;
+HSPLde/jrpie/android/launcher/ui/list/apps/ListFragmentApps;->*(**)**
+Lde/jrpie/android/launcher/ui/list/apps/ListFragmentApps$*;
+HSPLde/jrpie/android/launcher/ui/list/apps/ListFragmentApps$*;->*(**)**
+Lde/jrpie/android/launcher/ui/list/apps/AppsRecyclerAdapter;
+HSPLde/jrpie/android/launcher/ui/list/apps/AppsRecyclerAdapter;->*(**)**
+Lde/jrpie/android/launcher/ui/list/apps/AppsRecyclerAdapter$*;
+HSPLde/jrpie/android/launcher/ui/list/apps/AppsRecyclerAdapter$*;->*(**)**
+Lde/jrpie/android/launcher/apps/AppFilter;
+HSPLde/jrpie/android/launcher/apps/AppFilter;->*(**)**
+Lde/jrpie/android/launcher/apps/AppFilter$*;
+HSPLde/jrpie/android/launcher/apps/AppFilter$*;->*(**)**
