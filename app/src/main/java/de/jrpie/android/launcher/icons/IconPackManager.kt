@@ -155,10 +155,27 @@ class IconPackManager private constructor(private val context: Context) {
     }
 
     fun getIcon(appInfo: AbstractAppInfo, defaultComponentName: ComponentName): Drawable? {
-        val pack = currentPack()
+        return getIcon(currentPack(), appInfo, defaultComponentName, LauncherPreferences.apps().customIcons())
+    }
 
+    /**
+     * Like [getIcon], but takes the custom icon map as a parameter and does not read the custom
+     * icon preference. The icon pack should have been set already (see [setIconPack]); the
+     * preference is only read if no pack is loaded.
+     */
+    fun getIcon(
+        appInfo: AbstractAppInfo,
+        defaultComponentName: ComponentName,
+        customMap: Map<AbstractAppInfo, String>?
+    ): Drawable? = getIcon(loaded ?: currentPack(), appInfo, defaultComponentName, customMap)
+
+    private fun getIcon(
+        pack: LoadedPack?,
+        appInfo: AbstractAppInfo,
+        defaultComponentName: ComponentName,
+        customMap: Map<AbstractAppInfo, String>?
+    ): Drawable? {
         // Check for custom per-app icon override
-        val customMap = LauncherPreferences.apps().customIcons()
         val customTarget = customMap?.get(appInfo)
         if (!customTarget.isNullOrEmpty()) {
             val customComponent = ComponentName.unflattenFromString(customTarget)

@@ -169,6 +169,12 @@ fun getApps(
 
     val privateSpaceUser = getPrivateSpaceUser(context)
 
+    // Read the icon preferences once for all apps instead of once per app.
+    // setIconPack() returns early if the pack is already loaded.
+    val iconManager = de.jrpie.android.launcher.icons.IconPackManager.getInstance(context)
+    iconManager.setIconPack(LauncherPreferences.theme().iconPack())
+    val customIcons = LauncherPreferences.apps().customIcons()
+
     // TODO: shortcuts - launcherApps.getShortcuts()
     val users = userManager.userProfiles
     for (user in users) {
@@ -189,7 +195,7 @@ fun getApps(
         }
         try {
             launcherApps.getActivityList(null, user).forEach {
-                loadList.add(DetailedAppInfo(it, it.user == privateSpaceUser, context))
+                loadList.add(DetailedAppInfo(it, it.user == privateSpaceUser, context, customIcons))
             }
         } catch (e: Exception) {
             // getActivityList seems to be broken on some Android distributions.
@@ -213,7 +219,6 @@ fun getApps(
         }
         for (ri in allApps) {
             val app = AppInfo(ri.activityInfo.packageName, null, INVALID_USER)
-            val iconManager = de.jrpie.android.launcher.icons.IconPackManager.getInstance(context)
             val icon = iconManager.getIcon(android.content.ComponentName(ri.activityInfo.packageName, ri.activityInfo.name)) ?: ri.activityInfo.loadIcon(packageManager)
             val detailedAppInfo = DetailedAppInfo(
                 app,

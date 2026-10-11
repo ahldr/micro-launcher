@@ -11,6 +11,7 @@ import de.jrpie.android.launcher.actions.Action
 import de.jrpie.android.launcher.actions.AppAction
 import de.jrpie.android.launcher.icons.IconPackManager
 import de.jrpie.android.launcher.getUserFromId
+import de.jrpie.android.launcher.preferences.LauncherPreferences
 
 /**
  * Stores information used to create [de.jrpie.android.launcher.ui.list.apps.AppsRecyclerAdapter] rows.
@@ -26,6 +27,8 @@ class DetailedAppInfo private constructor(
     preloadedIcon: Drawable?,
     /** Used to resolve the icon when [preloadedIcon] is `null`. */
     private val activityInfo: LauncherActivityInfo?,
+    /** Snapshot of the custom icon preference, used together with [activityInfo]. */
+    private val customIcons: Map<AbstractAppInfo, String>?,
     private val privateSpace: Boolean,
     private val removable: Boolean,
 ) : AbstractDetailedAppInfo {
@@ -39,12 +42,33 @@ class DetailedAppInfo private constructor(
         icon: Drawable,
         privateSpace: Boolean,
         removable: Boolean = true,
-    ) : this(app, label, icon, null, privateSpace, removable)
+    ) : this(app, label, icon, null, null, privateSpace, removable)
 
+    /**
+     * Reads the icon preferences for this single app. When creating many instances, pass a
+     * snapshot of the preferences with the constructor below instead.
+     */
     // context is no longer needed here since the icon is resolved lazily;
     // the parameter is kept to leave the constructor signature unchanged.
     @Suppress("UNUSED_PARAMETER")
     constructor(activityInfo: LauncherActivityInfo, private: Boolean, context: Context) : this(
+        activityInfo,
+        private,
+        context,
+        readIconPreferences(context)
+    )
+
+    /**
+     * [customIcons] is a snapshot of the custom icon preference, so it is not read again for
+     * every app. The icon pack must already be set on [IconPackManager] (see [getApps]).
+     */
+    @Suppress("UNUSED_PARAMETER")
+    constructor(
+        activityInfo: LauncherActivityInfo,
+        private: Boolean,
+        context: Context,
+        customIcons: Map<AbstractAppInfo, String>?,
+    ) : this(
         AppInfo(
             activityInfo.applicationInfo.packageName,
             activityInfo.name,
@@ -53,6 +77,7 @@ class DetailedAppInfo private constructor(
         activityInfo.label,
         null,
         activityInfo,
+        customIcons,
         private,
         // App can be uninstalled iff it is not a system app
         activityInfo.applicationInfo.flags.and(ApplicationInfo.FLAG_SYSTEM) == 0
@@ -84,7 +109,7 @@ class DetailedAppInfo private constructor(
     private fun loadIcon(context: Context): Drawable? {
         val info = activityInfo ?: return null
         return try {
-            IconPackManager.getInstance(context).getIcon(app, info.componentName)
+            IconPackManager.getInstance(context).getIcon(app, info.componentName, customIcons)
                 ?: info.getBadgedIcon(0)
         } catch (e: Exception) {
             Log.w(LOG_TAG, "exception thrown while loading icon of $app", e)
@@ -114,6 +139,11 @@ class DetailedAppInfo private constructor(
 
 
     companion object {
+        private fun readIconPreferences(context: Context): Map<AbstractAppInfo, String>? {
+            IconPackManager.getInstance(context).setIconPack(LauncherPreferences.theme().iconPack())
+            return LauncherPreferences.apps().customIcons()
+        }
+
         fun fromAppInfo(appInfo: AppInfo, context: Context): DetailedAppInfo? {
             return appInfo.getLauncherActivityInfo(context)?.let {
                 DetailedAppInfo(it, it.user == getPrivateSpaceUser(context), context)
