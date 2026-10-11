@@ -51,11 +51,25 @@ android {
         unitTests.isReturnDefaultValues = true
     }
 
+    // Release signing configuration, provided through the environment (see .github/workflows/release.yml).
+    // Without it, release builds are signed with the debug key, as before.
+    val releaseKeystoreFile: String? = System.getenv("RELEASE_KEYSTORE_FILE")
+    signingConfigs {
+        if (!releaseKeystoreFile.isNullOrEmpty()) {
+            create("release") {
+                storeFile = file(releaseKeystoreFile)
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
