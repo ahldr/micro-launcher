@@ -1,6 +1,7 @@
 package de.jrpie.android.launcher.ui.widgets
 
 import android.app.Activity
+import android.appwidget.AppWidgetHostView
 import android.content.Context
 import android.graphics.PointF
 import android.graphics.RectF
@@ -12,9 +13,12 @@ import android.view.View.MeasureSpec.makeMeasureSpec
 import android.view.ViewGroup
 import androidx.core.graphics.contains
 import androidx.core.view.size
+import de.jrpie.android.launcher.widgets.AppWidget
 import de.jrpie.android.launcher.widgets.Widget
 import de.jrpie.android.launcher.widgets.WidgetPanel
 import de.jrpie.android.launcher.widgets.WidgetPosition
+import de.jrpie.android.launcher.widgets.updateSize
+import java.util.WeakHashMap
 import kotlin.math.max
 
 
@@ -29,6 +33,9 @@ open class WidgetContainerView(
     constructor(context: Context, attrs: AttributeSet) : this(WidgetPanel.HOME.id, context, attrs)
 
     var widgetViewById = HashMap<Int, View>()
+
+    /** The size (in pixels) last reported to each hosted app widget, to avoid spamming providers. */
+    private val reportedSizes = WeakHashMap<AppWidgetHostView, Pair<Int, Int>>()
 
     /**
      * Brings the views of this panel in sync with [widgets].
@@ -158,6 +165,17 @@ open class WidgetContainerView(
             child.layout(position.left, position.top, position.right, position.bottom)
             child.layoutParams.width = position.width()
             child.layoutParams.height = position.height()
+
+            if (child is AppWidgetHostView) {
+                val size = Pair(position.width(), position.height())
+                if (reportedSizes[child] != size) {
+                    reportedSizes[child] = size
+                    // Use the position from the layout params: during edit mode it is ahead
+                    // of the saved widget position.
+                    AppWidget(child.appWidgetId, lp.position)
+                        .updateSize(child, r - l, b - t)
+                }
+            }
         }
     }
 
