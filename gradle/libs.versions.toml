@@ -16,6 +16,7 @@ kotlinx-serialization-json = "1.9.0"
 material = "1.13.0"
 palette-ktx = "1.0.0"
 preference-ktx = "1.2.1"
+profileinstaller = "1.4.1"
 recyclerview = "1.4.0"
 serialization = "1.8.10"
 
@@ -29,6 +30,7 @@ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = 
 androidx-gridlayout = { group = "androidx.gridlayout", name = "gridlayout", version.ref = "gridlayout" }
 androidx-palette-ktx = { group = "androidx.palette", name = "palette-ktx", version.ref = "palette-ktx" }
 androidx-preference-ktx = { group = "androidx.preference", name = "preference-ktx", version.ref = "preference-ktx" }
+androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
 
 # Google Material
