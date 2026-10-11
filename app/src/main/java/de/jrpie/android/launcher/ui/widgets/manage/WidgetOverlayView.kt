@@ -7,7 +7,6 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Paint.Align
 import android.graphics.Rect
-import android.graphics.drawable.Drawable
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
@@ -93,13 +92,11 @@ class WidgetOverlayView : ViewGroup {
         paint.setShadowLayer(10f, 0f, 0f, Color.BLACK)
     }
 
-    private var preview: Drawable? = null
     private var interactionDisabled = true
     var widgetId: Int = -1
         set(newId) {
             field = newId
             Widget.byId(widgetId)?.let {
-                preview = it.getPreview(context)
                 interactionDisabled = !it.allowInteraction
             }
         }
