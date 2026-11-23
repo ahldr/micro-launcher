@@ -11,6 +11,7 @@ import androidx.core.content.edit
 import com.google.android.material.snackbar.Snackbar
 import de.jrpie.android.launcher.R
 import de.jrpie.android.launcher.preferences.LauncherPreferences
+import de.jrpie.android.launcher.ui.list.AppListOverlayHost
 import de.jrpie.android.launcher.ui.list.SelectActionActivity
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -101,10 +102,14 @@ sealed interface Action {
                         } else {
                             Pair(0, 0)
                         }
-                    // There does not seem to be a good alternative to overridePendingTransition.
-                    // Note that we can't use overrideActivityTransition here.
-                    @Suppress("deprecation")
-                    context.overridePendingTransition(animationIn, animationOut)
+                    // If the action opened the app list in this activity's window,
+                    // there is no activity transition to animate.
+                    if ((context as? AppListOverlayHost)?.startAppListOpenAnimation(animationIn) != true) {
+                        // There does not seem to be a good alternative to overridePendingTransition.
+                        // Note that we can't use overrideActivityTransition here.
+                        @Suppress("deprecation")
+                        context.overridePendingTransition(animationIn, animationOut)
+                    }
                 }
             } else {
                 if (context is Activity && gesture != null) {

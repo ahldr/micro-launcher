@@ -9,6 +9,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.recyclerview.widget.GridLayoutManager
@@ -24,8 +25,9 @@ import de.jrpie.android.launcher.preferences.theme.ColorTheme
 import de.jrpie.android.launcher.ui.UIObject
 import de.jrpie.android.launcher.ui.closeKeyboardOnScroll
 import de.jrpie.android.launcher.ui.list.AbstractListActivity
-import de.jrpie.android.launcher.ui.list.AppListActivity
+import de.jrpie.android.launcher.ui.list.AppListHost
 import de.jrpie.android.launcher.ui.openKeyboardIfEnabled
+import de.jrpie.android.launcher.ui.showKeyboardNow
 
 
 /**
@@ -54,9 +56,17 @@ class ListFragmentApps : Fragment(), UIObject {
     // Set when preferences change while the list is not visible.
     private var appsListOutdated = false
 
+    // Set while [onShown] clears the search field, so that this doesn't launch an app.
+    private var clearingQuery = false
+
+    private val host: AppListHost?
+        get() = activity as? AppListHost
+
     private var sharedPreferencesListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-            if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+                && host?.isAppListShown != false
+            ) {
                 appsRecyclerAdapter.updateAppsList()
             } else {
                 appsListOutdated = true
@@ -106,8 +116,7 @@ class ListFragmentApps : Fragment(), UIObject {
 
                 if (newText == " " &&
                     !appsRecyclerAdapter.disableAutoLaunch &&
-                    (activity as? AbstractListActivity)?.intention
-                    == AbstractListActivity.Companion.Intention.VIEW &&
+                    host?.intention == AbstractListActivity.Companion.Intention.VIEW &&
                     LauncherPreferences.functionality().searchAutoLaunch()
                 ) {
                     appsRecyclerAdapter.disableAutoLaunch = true
@@ -118,21 +127,21 @@ class ListFragmentApps : Fragment(), UIObject {
                     return false
                 }
 
-                appsRecyclerAdapter.setSearchString(newText)
+                appsRecyclerAdapter.setSearchString(newText, triggerAutoLaunch = !clearingQuery)
                 return false
             }
         })
 
         binding.listAppsCheckBoxFavorites.setOnClickListener {
-            val listActivity = (activity as? AbstractListActivity) ?: return@setOnClickListener
-            listActivity.favoritesVisibility =
+            val host = host ?: return@setOnClickListener
+            host.favoritesVisibility =
                 if (binding.listAppsCheckBoxFavorites.isChecked) {
                     AppFilter.Companion.AppSetVisibility.EXCLUSIVE
                 } else {
                     AppFilter.Companion.AppSetVisibility.VISIBLE
                 }
-            appsRecyclerAdapter.setFavoritesVisibility(listActivity.favoritesVisibility)
-            (activity as? AppListActivity)?.updateTitle()
+            appsRecyclerAdapter.setFavoritesVisibility(host.favoritesVisibility)
+            host.updateTitle()
         }
 
         closeKeyboardOnScroll(requireActivity(), binding.listAppsRview)
@@ -160,7 +169,7 @@ class ListFragmentApps : Fragment(), UIObject {
         super<UIObject>.onStart()
 
         binding.listAppsCheckBoxFavorites.isChecked =
-            ((activity as? AppListActivity)?.favoritesVisibility == AppFilter.Companion.AppSetVisibility.EXCLUSIVE)
+            host?.favoritesVisibility == AppFilter.Companion.AppSetVisibility.EXCLUSIVE
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -176,7 +185,7 @@ class ListFragmentApps : Fragment(), UIObject {
     override fun setOnClicks() {}
 
     override fun adjustLayout() {
-        val listActivity = (activity as? AbstractListActivity) ?: return
+        val host = host ?: return
 
         val colorTheme = LauncherPreferences.theme().colorTheme()
         val config = ListConfig(
@@ -191,13 +200,14 @@ class ListFragmentApps : Fragment(), UIObject {
             listConfig = config
             appsRecyclerAdapter =
                 AppsRecyclerAdapter(
-                    listActivity, binding.root, listActivity.intention, listActivity.forGesture,
+                    requireActivity() as AppCompatActivity, binding.root,
+                    host.intention, host.forGesture,
                     appFilter = AppFilter(
                         requireContext(),
                         binding.listAppsSearchview.query.toString(),
-                        favoritesVisibility = listActivity.favoritesVisibility,
-                        privateSpaceVisibility = listActivity.privateSpaceVisibility,
-                        hiddenVisibility = listActivity.hiddenVisibility
+                        favoritesVisibility = host.favoritesVisibility,
+                        privateSpaceVisibility = host.privateSpaceVisibility,
+                        hiddenVisibility = host.hiddenVisibility
                     ),
                     layout = config.layout,
                     nameFormat = config.nameFormat
@@ -214,14 +224,51 @@ class ListFragmentApps : Fragment(), UIObject {
                 adapter = appsRecyclerAdapter
             }
             appsRecyclerAdapter.updateAppsList()
-        } else if (appsListOutdated) {
+            appsListOutdated = false
+        } else if (appsListOutdated && host.isAppListShown) {
             appsRecyclerAdapter.updateAppsList()
+            appsListOutdated = false
         }
-        appsListOutdated = false
 
-        if (listActivity.intention == AbstractListActivity.Companion.Intention.VIEW) {
+        if (host.intention == AbstractListActivity.Companion.Intention.VIEW && host.isAppListShown) {
             openKeyboardIfEnabled(requireActivity(), binding.listAppsSearchview)
         }
+    }
+
+    /**
+     * Called by [de.jrpie.android.launcher.ui.list.AppListOverlay] each time the home screen
+     * shows the list: resets it to how a freshly opened list looks and opens the keyboard.
+     */
+    fun onShown() {
+        val host = host ?: return
+        if (!::appsRecyclerAdapter.isInitialized) {
+            return
+        }
+
+        binding.listAppsCheckBoxFavorites.isChecked =
+            host.favoritesVisibility == AppFilter.Companion.AppSetVisibility.EXCLUSIVE
+        appsRecyclerAdapter.disableAutoLaunch = false
+        binding.listAppsSearchview.queryHint = getString(R.string.list_apps_search_hint)
+        // before focusing it: changing the text restarts the keyboard's input connection
+        clearingQuery = true
+        binding.listAppsSearchview.setQuery("", false)
+        clearingQuery = false
+
+        // Request the keyboard before doing anything else, it takes the longest to appear.
+        if (host.intention == AbstractListActivity.Companion.Intention.VIEW
+            && LauncherPreferences.functionality().searchAutoOpenKeyboard()
+        ) {
+            binding.listAppsSearchview.showKeyboardNow()
+        }
+
+        val visibilitiesChanged = appsRecyclerAdapter.setVisibilities(
+            host.favoritesVisibility, host.hiddenVisibility, host.privateSpaceVisibility
+        )
+        if (visibilitiesChanged || appsListOutdated) {
+            appsRecyclerAdapter.updateAppsList()
+            appsListOutdated = false
+        }
+        binding.listAppsRview.scrollToPosition(0)
     }
 
 }

@@ -10,20 +10,20 @@ import de.jrpie.android.launcher.ui.UIObjectActivity
  * - [AppListActivity] is used to view all apps and edit their settings
  * - [SelectActionActivity] is used to choose an app / intent to be launched
  */
-sealed class AbstractListActivity : UIObjectActivity() {
+sealed class AbstractListActivity : UIObjectActivity(), AppListHost {
     // TODO: remove this
-    abstract val intention: Intention
+    abstract override val intention: Intention
 
     // TODO: this should be a view model
-    var favoritesVisibility: AppFilter.Companion.AppSetVisibility =
+    override var favoritesVisibility: AppFilter.Companion.AppSetVisibility =
         AppFilter.Companion.AppSetVisibility.VISIBLE
-    var privateSpaceVisibility: AppFilter.Companion.AppSetVisibility =
+    override var privateSpaceVisibility: AppFilter.Companion.AppSetVisibility =
         AppFilter.Companion.AppSetVisibility.VISIBLE
-    var hiddenVisibility: AppFilter.Companion.AppSetVisibility =
+    override var hiddenVisibility: AppFilter.Companion.AppSetVisibility =
         AppFilter.Companion.AppSetVisibility.HIDDEN
 
     // TODO: only needed for [SelectActionActivity]
-    var forGesture: String? = null
+    override var forGesture: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

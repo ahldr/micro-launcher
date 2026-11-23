@@ -240,10 +240,30 @@ class AppsRecyclerAdapter(
     /**
      * The function [setSearchString] is used to search elements within this [RecyclerView].
      */
-    fun setSearchString(search: String) {
+    fun setSearchString(search: String, triggerAutoLaunch: Boolean = true) {
         appFilter.query = search
-        showMatchingApps(true)
+        showMatchingApps(triggerAutoLaunch)
+    }
 
+    /**
+     * Changes which apps are shown. Returns true if anything changed;
+     * the list is then out of date until [updateAppsList] is called.
+     */
+    fun setVisibilities(
+        favorites: AppFilter.Companion.AppSetVisibility,
+        hidden: AppFilter.Companion.AppSetVisibility,
+        privateSpace: AppFilter.Companion.AppSetVisibility
+    ): Boolean {
+        if (appFilter.favoritesVisibility == favorites
+            && appFilter.hiddenVisibility == hidden
+            && appFilter.privateSpaceVisibility == privateSpace
+        ) {
+            return false
+        }
+        appFilter.favoritesVisibility = favorites
+        appFilter.hiddenVisibility = hidden
+        appFilter.privateSpaceVisibility = privateSpace
+        return true
     }
 
     fun setFavoritesVisibility(v: AppFilter.Companion.AppSetVisibility) {

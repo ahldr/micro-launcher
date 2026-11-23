@@ -1,16 +1,26 @@
 package de.jrpie.android.launcher.ui
 
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Resources
 import android.os.Bundle
 import android.view.View
+import android.view.ViewTreeObserver
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.Lifecycle
 import de.jrpie.android.launcher.Application
 import de.jrpie.android.launcher.actions.Action
 import de.jrpie.android.launcher.actions.Gesture
 import de.jrpie.android.launcher.actions.LauncherAction
+import de.jrpie.android.launcher.apps.AppFilter.Companion.AppSetVisibility
 import de.jrpie.android.launcher.databinding.ActivityHomeBinding
 import de.jrpie.android.launcher.openTutorial
 import de.jrpie.android.launcher.preferences.LauncherPreferences
+import de.jrpie.android.launcher.ui.list.AbstractListActivity
+import de.jrpie.android.launcher.ui.list.AppListHost
+import de.jrpie.android.launcher.ui.list.AppListOverlay
+import de.jrpie.android.launcher.ui.list.AppListOverlayHost
 import de.jrpie.android.launcher.ui.util.LauncherGestureActivity
 
 
@@ -18,14 +28,27 @@ import de.jrpie.android.launcher.ui.util.LauncherGestureActivity
  * [HomeActivity] is the actual application launcher.
  * It displays widgets (usually just the clock)
  * and listens for gestures.
+ *
+ * It also shows the app list in its own window, see [AppListOverlay].
  */
-class HomeActivity : UIObject, LauncherGestureActivity() {
+class HomeActivity : UIObject, LauncherGestureActivity(), AppListHost, AppListOverlayHost {
 
     private lateinit var binding: ActivityHomeBinding
+    private lateinit var appListOverlay: AppListOverlay
+
+    // [AppListHost] for the app list shown in this window
+    override val intention = AbstractListActivity.Companion.Intention.VIEW
+    override val forGesture: String? = null
+    override var favoritesVisibility = AppSetVisibility.VISIBLE
+    override var hiddenVisibility = AppSetVisibility.HIDDEN
+    override var privateSpaceVisibility = AppSetVisibility.VISIBLE
+    override val isAppListShown: Boolean
+        get() = ::appListOverlay.isInitialized && appListOverlay.isShown
 
     private var sharedPreferencesListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, prefKey ->
-            if ( prefKey?.startsWith("display.") == true ) {
+            // The app list shown in this window has to pick up theme changes as well.
+            if (prefKey?.startsWith("display.") == true || prefKey?.startsWith("theme.") == true) {
                 recreate()
             } else if (prefKey?.startsWith("action.") == true) {
                 updateSettingsFallbackButtonVisibility()
@@ -50,6 +73,55 @@ class HomeActivity : UIObject, LauncherGestureActivity() {
         binding.buttonFallbackSettings.setOnClickListener {
             LauncherAction.SETTINGS.invoke(this)
         }
+
+        appListOverlay = AppListOverlay(this, this, binding.homeAppList) { shown ->
+            // While the keyboard is shown, the window may be resized. Hide the widgets so that
+            // they can't be seen jumping around behind the list.
+            if (shown) {
+                binding.homeWidgetContainer.visibility = View.INVISIBLE
+            } else {
+                showWidgetsOnceKeyboardIsHidden()
+            }
+            updateSettingsFallbackButtonVisibility()
+        }
+        useSoftInputResizeWorkaround(binding.homeAppList.listContainer)
+    }
+
+    /**
+     * Shows the widgets again after the app list was closed. The window can stay resized
+     * until the keyboard has disappeared, so wait for that (or at most [WIDGETS_SHOW_TIMEOUT_MS]).
+     */
+    private fun showWidgetsOnceKeyboardIsHidden() {
+        val root = binding.root
+        val showWidgets = object : ViewTreeObserver.OnGlobalLayoutListener, Runnable {
+            override fun onGlobalLayout() {
+                if (ViewCompat.getRootWindowInsets(root)
+                        ?.isVisible(WindowInsetsCompat.Type.ime()) != true
+                ) {
+                    run()
+                }
+            }
+
+            override fun run() {
+                root.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                root.removeCallbacks(this)
+                if (!isAppListShown) {
+                    binding.homeWidgetContainer.visibility = View.VISIBLE
+                }
+            }
+        }
+        if (ViewCompat.getRootWindowInsets(root)?.isVisible(WindowInsetsCompat.Type.ime()) == true) {
+            root.viewTreeObserver.addOnGlobalLayoutListener(showWidgets)
+            root.postDelayed(showWidgets, WIDGETS_SHOW_TIMEOUT_MS)
+        } else {
+            showWidgets.run()
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // The home button was pressed. It used to close [AppListActivity] as well.
+        appListOverlay.hide(animate = false)
     }
 
     override fun onStart() {
@@ -78,7 +150,7 @@ class HomeActivity : UIObject, LauncherGestureActivity() {
         // If µLauncher settings can not be reached from any action bound to an enabled gesture,
         // show the fallback button.
         binding.buttonFallbackSettings.visibility = if (
-            !Gesture.entries.any { g ->
+            !isAppListShown && !Gesture.entries.any { g ->
                 g.isEnabled() && Action.forGesture(g)?.canReachSettings() == true
             }
         ) {
@@ -122,7 +194,38 @@ class HomeActivity : UIObject, LauncherGestureActivity() {
     }
 
     override fun handleBack() {
-        Gesture.BACK(this)
+        if (isAppListShown) {
+            appListOverlay.hide()
+        } else {
+            Gesture.BACK(this)
+        }
+    }
+
+    override fun gesturesEnabled(): Boolean {
+        return !isAppListShown
+    }
+
+    override fun showAppList(
+        favoritesVisibility: AppSetVisibility,
+        hiddenVisibility: AppSetVisibility,
+        privateSpaceVisibility: AppSetVisibility
+    ): Boolean {
+        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            return false
+        }
+        this.favoritesVisibility = favoritesVisibility
+        this.hiddenVisibility = hiddenVisibility
+        this.privateSpaceVisibility = privateSpaceVisibility
+        appListOverlay.show()
+        return true
+    }
+
+    override fun startAppListOpenAnimation(animation: Int): Boolean {
+        return appListOverlay.startOpenAnimation(animation)
+    }
+
+    override fun updateTitle() {
+        appListOverlay.updateTitle()
     }
 
     override fun getRootView(): View {
@@ -131,5 +234,9 @@ class HomeActivity : UIObject, LauncherGestureActivity() {
 
     override fun isHomeScreen(): Boolean {
         return true
+    }
+
+    companion object {
+        private const val WIDGETS_SHOW_TIMEOUT_MS = 500L
     }
 }
