@@ -29,6 +29,7 @@ open class WidgetContainerView(
     constructor(context: Context, attrs: AttributeSet) : this(WidgetPanel.HOME.id, context, attrs)
 
     var widgetViewById = HashMap<Int, View>()
+    private val nonInteractiveWidgetIds = HashSet<Int>()
 
     open fun updateWidgets(activity: Activity, widgets: Collection<Widget>?) {
         synchronized(widgetViewById) {
@@ -38,12 +39,16 @@ open class WidgetContainerView(
             Log.i("WidgetContainer", "updating ${activity.localClassName}")
             widgetViewById.forEach { removeView(it.value) }
             widgetViewById.clear()
+            nonInteractiveWidgetIds.clear()
             widgets.filter { it.panelId == widgetPanelId }
                 .sortedBy { it.position.zIndex ?: 0 }
                 .forEach { widget ->
                     widget.createView(activity)?.let {
                         addView(it, LayoutParams(widget.position))
                         widgetViewById[widget.id] = it
+                        if (!widget.allowInteraction) {
+                            nonInteractiveWidgetIds.add(widget.id)
+                        }
                     }
                 }
         }
@@ -55,15 +60,13 @@ open class WidgetContainerView(
         }
         val position = PointF(ev.x, ev.y)
 
-        return widgetViewById.filter {
-            RectF(
-                it.value.x,
-                it.value.y,
-                it.value.x + it.value.width,
-                it.value.y + it.value.height
+        return widgetViewById.any { (id, view) ->
+            id in nonInteractiveWidgetIds && RectF(
+                view.x,
+                view.y,
+                view.x + view.width,
+                view.y + view.height
             ).contains(position)
-        }.any {
-            Widget.byId(it.key)?.allowInteraction == false
         }
     }
 

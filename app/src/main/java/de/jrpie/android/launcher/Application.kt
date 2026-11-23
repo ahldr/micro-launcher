@@ -31,6 +31,7 @@ import de.jrpie.android.launcher.preferences.resetPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlin.system.exitProcess
@@ -50,6 +51,8 @@ class Application : android.app.Application() {
     var iconPack: IconPack = DefaultIconPack
     lateinit var appWidgetHost: AppWidgetHost
     lateinit var appWidgetManager: AppWidgetManager
+
+    private val appsReloadRequests = Channel<Unit>(Channel.CONFLATED)
 
     private val profileAvailabilityBroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -178,6 +181,11 @@ class Application : android.app.Application() {
         if (Build.VERSION.SDK_INT >= VERSION_CODES.N_MR1) {
             removeUnusedShortcuts(this)
         }
+        CoroutineScope(Dispatchers.Default).launch {
+            for (request in appsReloadRequests) {
+                apps.postValue(getApps(packageManager, applicationContext, iconPack))
+            }
+        }
         loadApps()
 
         createNotificationChannels(this)
@@ -192,8 +200,6 @@ class Application : android.app.Application() {
         privateSpaceLocked.postValue(isPrivateSpaceLocked(this))
         iconPack = LauncherPreferences.theme().iconPack()?.getIconPack(this) ?: DefaultIconPack
         Log.w("Launcher", "using icon pack $iconPack")
-        CoroutineScope(Dispatchers.Default).launch {
-            apps.postValue(getApps(packageManager, applicationContext, iconPack))
-        }
+        appsReloadRequests.trySend(Unit)
     }
 }
