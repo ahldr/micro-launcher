@@ -238,8 +238,11 @@ fun getApps(
 
 /**
  * Returns all app shortcuts (i.e., static and dynamic shortcuts, that is, all except pinned shortcuts)
+ *
+ * Android only grants access to app shortcuts to the default home screen,
+ * hence this returns an empty list if µLauncher is not the default home screen.
  */
-@RequiresApi(Build.VERSION_CODES.R)
+@RequiresApi(Build.VERSION_CODES.N_MR1)
 fun getAppShortcuts(appInfo: AppInfo, context: Context): List<ShortcutInfo> {
     if (!isDefaultHomeScreen(context)) {
         return emptyList()
@@ -259,6 +262,36 @@ fun getAppShortcuts(appInfo: AppInfo, context: Context): List<ShortcutInfo> {
         ) ?: emptyList()
     } catch (_: Exception) {
         emptyList()
+    }
+}
+
+/**
+ * Pins [shortcut], keeping all shortcuts of the same app that µLauncher has already pinned.
+ *
+ * Pinning a shortcut that is bound to a gesture ensures that it can still be launched
+ * when the app later removes it from its dynamic shortcuts.
+ * Pins which are no longer needed are removed by [removeUnusedShortcuts].
+ */
+@RequiresApi(Build.VERSION_CODES.N_MR1)
+fun pinShortcut(context: Context, shortcut: ShortcutInfo) {
+    val launcherApps = context.getSystemService(Service.LAUNCHER_APPS_SERVICE) as LauncherApps
+    try {
+        // pinShortcuts replaces the set of pinned shortcuts of the package, hence keep the existing ones.
+        val pinned = launcherApps.getShortcuts(
+            ShortcutQuery().apply {
+                setPackage(shortcut.`package`)
+                setQueryFlags(ShortcutQuery.FLAG_MATCH_PINNED)
+            },
+            shortcut.userHandle
+        )?.map { it.id } ?: emptyList()
+        launcherApps.pinShortcuts(
+            shortcut.`package`,
+            (pinned + shortcut.id).distinct(),
+            shortcut.userHandle
+        )
+    } catch (e: Exception) {
+        // can throw SecurityException or IllegalStateException when the profile is locked
+        Log.w(LOG_TAG, "Could not pin shortcut ${shortcut.id} of ${shortcut.`package`}", e)
     }
 }
 

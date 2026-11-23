@@ -24,6 +24,9 @@ When long-pressing an app, additional options are shown:
 * App Info: Opens the system settings page for the app.
 * Uninstall: Tries to uninstall the app or remove the shortcut.
 
+Below these options, the app's shortcuts (e.g. *New tab* for a browser) are listed.
+Tapping a shortcut launches it, long pressing it allows to [bind it to a gesture](/docs/actions-and-gestures/#available-actions).
+
 ## All Apps
 
 This lists all apps except hidden apps.

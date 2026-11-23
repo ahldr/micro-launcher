@@ -68,6 +68,7 @@ The following gestures are available:
 
 To every gesture you can bind one of the following actions:
  - launch an app,
+ - launch an app shortcut (e.g. a browser's *New tab* or a search app's *Voice search*),
  - open a list of all / favorite / private apps,
  - open µLauncher settings,
  - toggle private space lock,

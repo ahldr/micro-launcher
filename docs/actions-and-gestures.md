@@ -53,6 +53,12 @@ These bindings can be configured in µLauncher Settings > ACTIONS.
 To any of the available gestures, one of the following actions can be bound:
 
 - Launch an app (or a pinned shortcut)
+- Launch an [app shortcut](https://developer.android.com/develop/ui/views/launch/shortcuts),
+    e.g. *New tab* of a browser or *Voice search* of a search app.
+    When choosing an action for a gesture, long press an app to show its shortcuts and pick one.
+    Alternatively, long press a shortcut in the [context menu of an app](/docs/app-drawer).
+    Android only allows the default home screen to access app shortcuts,
+    hence this requires µLauncher to be set as default home screen.
 - Open a widget panel.
     Widget panels can hold widgets that are not needed on the home screen itself.
     They can be created and managed in µLauncher Settings > Manage Widget Panels
