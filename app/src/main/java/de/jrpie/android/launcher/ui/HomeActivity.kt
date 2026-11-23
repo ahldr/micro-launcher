@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Resources
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.View
 import android.view.ViewTreeObserver
 import androidx.core.view.ViewCompat
@@ -45,6 +46,9 @@ class HomeActivity : UIObject, LauncherGestureActivity(), AppListHost, AppListOv
     override val isAppListShown: Boolean
         get() = ::appListOverlay.isInitialized && appListOverlay.isShown
 
+    // When the app list was last opened or closed, see [handleBack].
+    private var appListToggledAt = 0L
+
     private var sharedPreferencesListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, prefKey ->
             // The app list shown in this window has to pick up theme changes as well.
@@ -75,6 +79,7 @@ class HomeActivity : UIObject, LauncherGestureActivity(), AppListHost, AppListOv
         }
 
         appListOverlay = AppListOverlay(this, this, binding.homeAppList) { shown ->
+            appListToggledAt = SystemClock.uptimeMillis()
             // While the keyboard is shown, the window may be resized. Hide the widgets so that
             // they can't be seen jumping around behind the list.
             if (shown) {
@@ -194,6 +199,11 @@ class HomeActivity : UIObject, LauncherGestureActivity(), AppListHost, AppListOv
     }
 
     override fun handleBack() {
+        // One press of the back button must not open and close the list (or the other way
+        // round), which shows as a flicker. Ignore back right after the list was toggled.
+        if (SystemClock.uptimeMillis() - appListToggledAt < BACK_DEBOUNCE_MS) {
+            return
+        }
         if (isAppListShown) {
             appListOverlay.hide()
         } else {
@@ -238,5 +248,6 @@ class HomeActivity : UIObject, LauncherGestureActivity(), AppListHost, AppListOv
 
     companion object {
         private const val WIDGETS_SHOW_TIMEOUT_MS = 500L
+        private const val BACK_DEBOUNCE_MS = 300L
     }
 }
