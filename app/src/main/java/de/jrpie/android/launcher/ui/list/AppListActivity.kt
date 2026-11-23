@@ -76,7 +76,7 @@ class AppListActivity : AbstractListActivity() {
             // Otherwise it only appears after SearchView has set up its input connection
             // and sent a show request of its own, one round trip later.
             // Since API 28 this requires a focused text field when the window gains focus,
-            // which applyKeyboardSettings() takes care of.
+            // which openKeyboardIfEnabled() takes care of.
             window.setSoftInputMode(
                 (window.attributes.softInputMode and SOFT_INPUT_MASK_STATE.inv())
                         or SOFT_INPUT_STATE_VISIBLE

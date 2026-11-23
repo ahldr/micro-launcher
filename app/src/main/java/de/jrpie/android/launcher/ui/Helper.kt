@@ -89,6 +89,37 @@ private fun closeSoftKeyboard(activity: Activity) {
 }
 
 /**
+ * Closes the keyboard when [recyclerView] is scrolled, if
+ * [LauncherPreferences.functionality.searchAutoCloseKeyboard] is enabled at that time.
+ * Call this only once per [RecyclerView].
+ */
+fun closeKeyboardOnScroll(activity: Activity, recyclerView: RecyclerView) {
+    recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+        var totalDy: Int = 0
+        override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+            if (!LauncherPreferences.functionality().searchAutoCloseKeyboard()) {
+                return
+            }
+            totalDy += dy
+            if (totalDy.absoluteValue > 100) {
+                totalDy = 0
+                closeSoftKeyboard(activity)
+            }
+        }
+    })
+}
+
+/**
+ * Focuses [searchView] and opens the keyboard, if
+ * [LauncherPreferences.functionality.searchAutoOpenKeyboard] is enabled.
+ */
+fun openKeyboardIfEnabled(activity: Activity, searchView: SearchView) {
+    if (LauncherPreferences.functionality().searchAutoOpenKeyboard()) {
+        searchView.openSoftKeyboard(activity)
+    }
+}
+
+/**
  * Applies the settings [LauncherPreferences.functionality.searchAutoOpenKeyboard]
  * and [LauncherPreferences.functionality.searchAutoCloseKeyboard]
  * to a combination of [RecyclerView] and [SearchView]
@@ -96,19 +127,8 @@ private fun closeSoftKeyboard(activity: Activity) {
  * @param openKeyboard false: the keyboard is not opened; true: searchAutoOpenKeyboard setting is used.
  */
 fun applyKeyboardSettings(activity: Activity, recyclerView: RecyclerView, searchView: SearchView, openKeyboard: Boolean = true) {
-    if (LauncherPreferences.functionality().searchAutoCloseKeyboard()) {
-        recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            var totalDy: Int = 0
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                totalDy += dy
-                if (totalDy.absoluteValue > 100) {
-                    totalDy = 0
-                    closeSoftKeyboard(activity)
-                }
-            }
-        })
-    }
-    if (openKeyboard && LauncherPreferences.functionality().searchAutoOpenKeyboard()) {
-        searchView.openSoftKeyboard(activity)
+    closeKeyboardOnScroll(activity, recyclerView)
+    if (openKeyboard) {
+        openKeyboardIfEnabled(activity, searchView)
     }
 }
