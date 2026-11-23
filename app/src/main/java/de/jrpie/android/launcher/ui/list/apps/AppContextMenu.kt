@@ -13,10 +13,12 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.edit
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.drawable.toDrawable
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -25,7 +27,6 @@ import de.jrpie.android.launcher.actions.ShortcutAction
 import de.jrpie.android.launcher.apps.AbstractDetailedAppInfo
 import de.jrpie.android.launcher.apps.AppInfo
 import de.jrpie.android.launcher.apps.DetailedAppInfo
-import de.jrpie.android.launcher.apps.PinnedShortcutInfo
 import de.jrpie.android.launcher.databinding.AppContextMenuBinding
 import de.jrpie.android.launcher.getAppShortcuts
 import de.jrpie.android.launcher.preferences.LauncherPreferences
@@ -169,12 +170,26 @@ class AppContextMenu(val appInfo: AbstractDetailedAppInfo, val activity: AppComp
                         launcherApps.startShortcut(shortcutInfo, null, null)
                         dismiss()
                     }
+                    // Long click binds the shortcut to a gesture
+                    ViewCompat.replaceAccessibilityAction(
+                        shortcutView,
+                        AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_LONG_CLICK,
+                        activity.getString(R.string.pin_shortcut_button_bind),
+                        null
+                    )
                     shortcutView.setOnLongClickListener { _ ->
+                        dismiss()
                         DialogBindToGesture(activity) { gesture ->
-                            LauncherPreferences.getSharedPreferences().edit {
-                                ShortcutAction(PinnedShortcutInfo(shortcutInfo))
-                                    .bindToGesture(this, gesture.id)
-                            }
+                            ShortcutAction.bindToGesture(activity, shortcutInfo, gesture)
+                            Toast.makeText(
+                                activity,
+                                activity.getString(
+                                    R.string.toast_shortcut_bound,
+                                    shortcutInfo.shortLabel ?: shortcutInfo.longLabel ?: "",
+                                    gesture.getLabel(activity)
+                                ),
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                         true
                     }

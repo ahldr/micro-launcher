@@ -38,7 +38,10 @@ data class PinnedShortcutInfo(
                 ShortcutQuery().apply {
                     setQueryFlags(ShortcutQuery.FLAG_MATCH_PINNED or ShortcutQuery.FLAG_MATCH_MANIFEST or ShortcutQuery.FLAG_MATCH_DYNAMIC)
                     setPackage(packageName)
-                    setActivity(ComponentName(packageName, activityName))
+                    // A shortcut without a target activity can't be matched by its activity.
+                    if (activityName.isNotEmpty()) {
+                        setActivity(ComponentName(packageName, activityName))
+                    }
                     setShortcutIds(listOf(id))
                 },
                 getUserFromId(user, context)

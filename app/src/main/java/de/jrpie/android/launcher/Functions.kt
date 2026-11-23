@@ -262,6 +262,68 @@ fun getAppShortcuts(appInfo: AppInfo, context: Context): List<ShortcutInfo> {
     }
 }
 
+/**
+ * Returns the app shortcuts (static and dynamic, i.e. not pinned) of all apps in all available profiles.
+ * Disabled shortcuts are excluded.
+ *
+ * Android only grants access to app shortcuts to the default home screen,
+ * hence this returns an empty list if µLauncher is not the default home screen.
+ */
+@RequiresApi(Build.VERSION_CODES.N_MR1)
+fun getAllAppShortcuts(context: Context): List<ShortcutInfo> {
+    if (!isDefaultHomeScreen(context)) {
+        return emptyList()
+    }
+    val launcherApps = context.getSystemService(Service.LAUNCHER_APPS_SERVICE) as LauncherApps
+    val userManager = context.getSystemService(Service.USER_SERVICE) as UserManager
+    return userManager.userProfiles.flatMap { profile ->
+        try {
+            launcherApps.getShortcuts(
+                ShortcutQuery().apply {
+                    setQueryFlags(
+                        ShortcutQuery.FLAG_MATCH_DYNAMIC
+                                or ShortcutQuery.FLAG_MATCH_MANIFEST
+                    )
+                },
+                profile
+            ) ?: emptyList()
+        } catch (_: Exception) {
+            // can throw SecurityException or IllegalStateException when the profile is locked
+            emptyList()
+        }
+    }.filter { it.isEnabled }
+}
+
+/**
+ * Pins [shortcut], keeping all shortcuts of the same app that µLauncher has already pinned.
+ *
+ * Pinning a shortcut that is bound to a gesture ensures that it can still be launched
+ * when the app later removes it from its dynamic shortcuts.
+ * Pins which are no longer needed are removed by [removeUnusedShortcuts].
+ */
+@RequiresApi(Build.VERSION_CODES.N_MR1)
+fun pinShortcut(context: Context, shortcut: ShortcutInfo) {
+    val launcherApps = context.getSystemService(Service.LAUNCHER_APPS_SERVICE) as LauncherApps
+    try {
+        // pinShortcuts replaces the set of pinned shortcuts of the package, hence keep the existing ones.
+        val pinned = launcherApps.getShortcuts(
+            ShortcutQuery().apply {
+                setPackage(shortcut.`package`)
+                setQueryFlags(ShortcutQuery.FLAG_MATCH_PINNED)
+            },
+            shortcut.userHandle
+        )?.map { it.id } ?: emptyList()
+        launcherApps.pinShortcuts(
+            shortcut.`package`,
+            (pinned + shortcut.id).distinct(),
+            shortcut.userHandle
+        )
+    } catch (e: Exception) {
+        // can throw SecurityException or IllegalStateException when the profile is locked
+        Log.w(LOG_TAG, "Could not pin shortcut ${shortcut.id} of ${shortcut.`package`}", e)
+    }
+}
+
 /*
 @RequiresApi(Build.VERSION_CODES.R)
 fun getAllShortcuts(context: Context): List<DetailedPinnedShortcutInfo> {
