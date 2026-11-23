@@ -3,21 +3,27 @@ package de.jrpie.android.launcher.ui.list.apps
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.graphics.Rect
+import android.os.Build
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.RecyclerView
 import de.jrpie.android.launcher.Application
 import de.jrpie.android.launcher.R
 import de.jrpie.android.launcher.actions.Action
 import de.jrpie.android.launcher.actions.Gesture
+import de.jrpie.android.launcher.actions.ShortcutAction
 import de.jrpie.android.launcher.apps.AbstractDetailedAppInfo
 import de.jrpie.android.launcher.apps.AppFilter
 import de.jrpie.android.launcher.apps.AppInfo
+import de.jrpie.android.launcher.apps.DetailedAppInfo
+import de.jrpie.android.launcher.getAppShortcuts
+import de.jrpie.android.launcher.isDefaultHomeScreen
 import de.jrpie.android.launcher.preferences.LauncherPreferences
 import de.jrpie.android.launcher.preferences.list.AppNameFormat
 import de.jrpie.android.launcher.preferences.list.ListLayout
@@ -113,6 +119,12 @@ class AppsRecyclerAdapter(
             // ensure onClicks are actually caught
             viewHolder.textView.setOnClickListener { viewHolder.onClick(viewHolder.textView) }
             viewHolder.img.setOnClickListener { viewHolder.onClick(viewHolder.img) }
+        } else if (intention == AbstractListActivity.Companion.Intention.PICK) {
+            // long click shows the app's shortcuts, such that one of them can be bound instead
+            viewHolder.itemView.setOnLongClickListener {
+                appsListDisplayed.getOrNull(viewHolder.bindingAdapterPosition)
+                    ?.let { showShortcutPicker(viewHolder, it) } ?: false
+            }
         }
     }
 
@@ -125,6 +137,39 @@ class AppsRecyclerAdapter(
         return true
     }
 
+
+    /**
+     * Shows the shortcuts of [appInfo] (e.g. "New tab" of a browser).
+     * Picking one binds it to [forGesture] instead of the app itself.
+     */
+    private fun showShortcutPicker(
+        viewHolder: ViewHolder,
+        appInfo: AbstractDetailedAppInfo
+    ): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N_MR1 || appInfo !is DetailedAppInfo) {
+            return false
+        }
+        val gesture = forGesture?.let { Gesture.byId(it) } ?: return false
+
+        if (getAppShortcuts(appInfo.getRawInfo(), activity).isEmpty()) {
+            val message = if (isDefaultHomeScreen(activity)) {
+                activity.getString(
+                    R.string.toast_app_has_no_shortcuts,
+                    appInfo.getCustomLabel(activity)
+                )
+            } else {
+                activity.getString(R.string.toast_shortcuts_not_default_home)
+            }
+            Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
+            return true
+        }
+
+        AppContextMenu(appInfo, activity) { shortcut ->
+            ShortcutAction.bindToGesture(activity, shortcut, gesture)
+            activity.finish()
+        }.show(viewHolder.textView)
+        return true
+    }
 
     override fun getItemCount(): Int {
         return appsListDisplayed.size

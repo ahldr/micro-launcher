@@ -238,8 +238,11 @@ fun getApps(
 
 /**
  * Returns all app shortcuts (i.e., static and dynamic shortcuts, that is, all except pinned shortcuts)
+ *
+ * Android only grants access to app shortcuts to the default home screen,
+ * hence this returns an empty list if µLauncher is not the default home screen.
  */
-@RequiresApi(Build.VERSION_CODES.R)
+@RequiresApi(Build.VERSION_CODES.N_MR1)
 fun getAppShortcuts(appInfo: AppInfo, context: Context): List<ShortcutInfo> {
     if (!isDefaultHomeScreen(context)) {
         return emptyList()
@@ -260,38 +263,6 @@ fun getAppShortcuts(appInfo: AppInfo, context: Context): List<ShortcutInfo> {
     } catch (_: Exception) {
         emptyList()
     }
-}
-
-/**
- * Returns the app shortcuts (static and dynamic, i.e. not pinned) of all apps in all available profiles.
- * Disabled shortcuts are excluded.
- *
- * Android only grants access to app shortcuts to the default home screen,
- * hence this returns an empty list if µLauncher is not the default home screen.
- */
-@RequiresApi(Build.VERSION_CODES.N_MR1)
-fun getAllAppShortcuts(context: Context): List<ShortcutInfo> {
-    if (!isDefaultHomeScreen(context)) {
-        return emptyList()
-    }
-    val launcherApps = context.getSystemService(Service.LAUNCHER_APPS_SERVICE) as LauncherApps
-    val userManager = context.getSystemService(Service.USER_SERVICE) as UserManager
-    return userManager.userProfiles.flatMap { profile ->
-        try {
-            launcherApps.getShortcuts(
-                ShortcutQuery().apply {
-                    setQueryFlags(
-                        ShortcutQuery.FLAG_MATCH_DYNAMIC
-                                or ShortcutQuery.FLAG_MATCH_MANIFEST
-                    )
-                },
-                profile
-            ) ?: emptyList()
-        } catch (_: Exception) {
-            // can throw SecurityException or IllegalStateException when the profile is locked
-            emptyList()
-        }
-    }.filter { it.isEnabled }
 }
 
 /**

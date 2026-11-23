@@ -73,10 +73,25 @@ class DetailedPinnedShortcutInfo(
 
 @RequiresApi(Build.VERSION_CODES.N_MR1)
 private fun loadBadgedIcon(context: Context, shortcut: ShortcutInfo): Drawable {
+    return loadShortcutBadgedIcon(context, shortcut)
+        ?: AppCompatResources.getDrawable(context, R.drawable.baseline_question_mark_24)!!
+}
+
+/**
+ * Loads the (badged) icon of [shortcut], or returns null if it can't be loaded.
+ */
+@RequiresApi(Build.VERSION_CODES.N_MR1)
+fun loadShortcutBadgedIcon(context: Context, shortcut: ShortcutInfo): Drawable? {
     val launcherApps = context.getSystemService(Service.LAUNCHER_APPS_SERVICE) as LauncherApps
     return try {
-        launcherApps.getShortcutBadgedIconDrawable(shortcut, 0)
-    } catch (_: IllegalStateException) {
+        // Don't pass 0 (default density): Android 7.1 divides by the density
+        // when loading icons from resources, causing an ArithmeticException.
+        launcherApps.getShortcutBadgedIconDrawable(
+            shortcut,
+            context.resources.displayMetrics.densityDpi
+        )
+    } catch (_: Exception) {
+        // IllegalStateException when the profile is locked
         null
-    } ?: AppCompatResources.getDrawable(context, R.drawable.baseline_question_mark_24)!!
+    }
 }

@@ -55,8 +55,8 @@ To any of the available gestures, one of the following actions can be bound:
 - Launch an app (or a pinned shortcut)
 - Launch an [app shortcut](https://developer.android.com/develop/ui/views/launch/shortcuts),
     e.g. *New tab* of a browser or *Voice search* of a search app.
-    App shortcuts can be chosen in the *Shortcuts* tab when selecting an action for a gesture,
-    or by long pressing a shortcut in the [context menu of an app](/docs/app-drawer).
+    When choosing an action for a gesture, long press an app to show its shortcuts and pick one.
+    Alternatively, long press a shortcut in the [context menu of an app](/docs/app-drawer).
     Android only allows the default home screen to access app shortcuts,
     hence this requires µLauncher to be set as default home screen.
 - Open a widget panel.

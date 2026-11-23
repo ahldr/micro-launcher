@@ -260,7 +260,6 @@
     <string name="activity_select_action_title">Choose Action</string>
 
     <string name="list_tab_app">Apps</string>
-    <string name="list_tab_shortcuts">Shortcuts</string>
     <string name="list_tab_other">Other</string>
 
     <string name="list_app_delete">Uninstall</string>
@@ -273,11 +272,6 @@
 
     <string name="list_apps_search_hint">Search</string>
     <string name="list_apps_search_hint_no_auto_launch">Search (no auto launch)</string>
-
-    <string name="list_shortcuts_empty">No app shortcuts found</string>
-    <string name="list_shortcuts_not_default_home">App shortcuts are only available while µLauncher is set as the default home screen</string>
-    <!-- %1$s: label of the shortcut, %2$s: name of the app -->
-    <string name="list_shortcuts_content_description">%1$s (%2$s)</string>
 
     <string name="list_other_settings">μLauncher Settings</string>
     <string name="list_other_list">All Applications</string>
@@ -303,6 +297,9 @@
     <string name="pin_shortcut_button_bind">Bind to gesture</string>
     <!-- %1$s: label of the shortcut, %2$s: name of the gesture -->
     <string name="toast_shortcut_bound">Bound “%1$s” to %2$s</string>
+    <!-- %1$s: name of the app -->
+    <string name="toast_app_has_no_shortcuts">%1$s has no shortcuts</string>
+    <string name="toast_shortcuts_not_default_home">App shortcuts are only available while µLauncher is set as the default home screen</string>
     <string name="pin_shortcut_switch_visible">Show in app list</string>
 
     <!--
