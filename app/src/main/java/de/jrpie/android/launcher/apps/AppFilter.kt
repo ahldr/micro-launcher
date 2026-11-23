@@ -17,7 +17,11 @@ class AppFilter(
     var privateSpaceVisibility: AppSetVisibility = AppSetVisibility.VISIBLE
 ): FilterHelper() {
 
-    operator fun invoke(apps: List<AbstractDetailedAppInfo>): List<AbstractDetailedAppInfo> {
+    /**
+     * Sorts [apps] and applies the visibility settings.
+     * The result does not depend on [query], so it can be reused while the user types.
+     */
+    fun filterVisible(apps: List<AbstractDetailedAppInfo>): List<AbstractDetailedAppInfo> {
         var apps =
             apps.sortedBy { app -> app.getCustomLabel(context).lowercase(Locale.ROOT) }
 
@@ -44,6 +48,13 @@ class AppFilter(
             apps = apps.filterNot { info -> boundApps.contains(info.getRawInfo()) }
         }
 
+        return apps
+    }
+
+    /**
+     * Applies [query] to a list returned by [filterVisible].
+     */
+    fun applyQuery(apps: List<AbstractDetailedAppInfo>): List<AbstractDetailedAppInfo> {
         return if (query.isEmpty()) {
             apps
         } else {

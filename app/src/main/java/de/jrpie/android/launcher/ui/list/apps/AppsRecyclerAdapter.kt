@@ -57,16 +57,15 @@ class AppsRecyclerAdapter(
     private val colorTheme = theme.colorTheme()
     private val grayscale = colorTheme.monochromeIcons()
 
+    // The installed apps the list was last built from.
+    private var appsSource: List<AbstractDetailedAppInfo>? = null
+
+    // [appsSource] sorted and filtered by visibility, before applying the search query.
+    // Kept so that typing only has to run the query filter.
+    private var appsVisible: List<AbstractDetailedAppInfo> = emptyList()
+
     // temporarily disable auto launch
     var disableAutoLaunch: Boolean = false
-
-    init {
-        // LiveData delivers the current list once the activity is started,
-        // so populating the list here as well would build it twice.
-        apps.observe(this.activity as AppCompatActivity) {
-            updateAppsList()
-        }
-    }
 
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView),
@@ -199,9 +198,27 @@ class AppsRecyclerAdapter(
         }
     }
 
-    fun updateAppsList(triggerAutoLaunch: Boolean = false) {
+    /**
+     * Rebuilds the list from the installed apps and the current preferences.
+     */
+    fun updateAppsList() {
+        appsSource = apps.value
+        appsVisible = appsSource?.let { appFilter.filterVisible(it) } ?: emptyList()
+        showMatchingApps(false)
+    }
+
+    /**
+     * Rebuilds the list only if the installed apps changed since it was last built.
+     */
+    fun updateAppsListIfChanged() {
+        if (apps.value !== appsSource) {
+            updateAppsList()
+        }
+    }
+
+    private fun showMatchingApps(triggerAutoLaunch: Boolean) {
         appsListDisplayed.clear()
-        apps.value?.let { appsListDisplayed.addAll(appFilter(it)) }
+        appsListDisplayed.addAll(appFilter.applyQuery(appsVisible))
 
         if (triggerAutoLaunch &&
             appsListDisplayed.size == 1
@@ -225,7 +242,7 @@ class AppsRecyclerAdapter(
      */
     fun setSearchString(search: String) {
         appFilter.query = search
-        updateAppsList(true)
+        showMatchingApps(true)
 
     }
 
