@@ -64,7 +64,8 @@ jobs:
     - name: Verify signature
       run: |
         APK=$(ls app/build/outputs/apk/default/release/*.apk | head -1)
-        "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs "$APK"
+        APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+        "$APKSIGNER" verify --print-certs "$APK"
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
