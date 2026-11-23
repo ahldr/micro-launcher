@@ -2,6 +2,7 @@ package de.jrpie.android.launcher.icons
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.LauncherActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.content.res.XmlResourceParser
@@ -83,16 +84,27 @@ class CustomIconPack(val iconPackHandle: CustomIconPackHandle, val resources: Re
             }
         }
     }
-    override fun loadIcon(context: Context, info: AppInfo): Drawable? {
-        return appfilter["ComponentInfo{${info.packageName}/${info.activityName}}"]?.let { drawableName ->
+    private fun loadIconFromPack(context: Context, packageName: String, activityName: String?): Drawable? {
+        return appfilter["ComponentInfo{$packageName/$activityName}"]?.let { drawableName ->
             getDrawable(drawableName, context)
-        } ?: info.getLauncherActivityInfo(context)?.getBadgedIcon(0)
+        }
+    }
+
+    override fun loadIcon(context: Context, info: AppInfo): Drawable? {
+        return loadIconFromPack(context, info.packageName, info.activityName)
+            ?: info.getLauncherActivityInfo(context)?.getBadgedIcon(0)
     }
 
     override fun loadBadgedIcon(context: Context, info: AppInfo): Drawable? {
         return loadIcon(context, info)?.let { icon ->
             context.packageManager.getUserBadgedIcon(icon, getUserFromId(info.user, context))
         }
+    }
+
+    override fun loadBadgedIcon(context: Context, activityInfo: LauncherActivityInfo): Drawable? {
+        val icon = loadIconFromPack(context, activityInfo.applicationInfo.packageName, activityInfo.name)
+            ?: activityInfo.getBadgedIcon(0)
+        return context.packageManager.getUserBadgedIcon(icon, activityInfo.user)
     }
 
     /**
