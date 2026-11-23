@@ -1,7 +1,6 @@
 package de.jrpie.android.launcher.ui.util
 
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
@@ -9,6 +8,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.window.OnBackInvokedDispatcher
+import androidx.appcompat.app.AppCompatActivity
 import de.jrpie.android.launcher.actions.Action
 import de.jrpie.android.launcher.actions.Gesture
 import de.jrpie.android.launcher.actions.LauncherAction
@@ -18,11 +18,19 @@ import de.jrpie.android.launcher.ui.TouchGestureDetector
 /**
  * An activity with a  [TouchGestureDetector] as well as handling of volume and back keys set up.
  */
-abstract class LauncherGestureActivity : Activity() {
+abstract class LauncherGestureActivity : AppCompatActivity() {
     protected var touchGestureDetector: TouchGestureDetector? = null
 
+    /**
+     * Whether touch gestures and the volume keys trigger actions.
+     * The back key / gesture always calls [handleBack].
+     */
+    protected open fun gesturesEnabled(): Boolean = true
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        touchGestureDetector?.onTouchEvent(event)
+        if (gesturesEnabled()) {
+            touchGestureDetector?.onTouchEvent(event)
+        }
         return true
     }
 
@@ -76,6 +84,9 @@ abstract class LauncherGestureActivity : Activity() {
             }
 
             KeyEvent.KEYCODE_VOLUME_UP -> {
+                if (!gesturesEnabled()) {
+                    return false
+                }
                 if (Action.forGesture(Gesture.VOLUME_UP) == LauncherAction.VOLUME_UP) {
                     // Let the OS handle the key event. This works better with some custom ROMs
                     // and apps like Samsung Sound Assistant.
@@ -86,6 +97,9 @@ abstract class LauncherGestureActivity : Activity() {
             }
 
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                if (!gesturesEnabled()) {
+                    return false
+                }
                 if (Action.forGesture(Gesture.VOLUME_DOWN) == LauncherAction.VOLUME_DOWN) {
                     // see above
                     return false

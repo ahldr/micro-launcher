@@ -54,7 +54,8 @@
             android:excludeFromRecents="true"
             android:exported="true"
             android:launchMode="singleTask"
-            android:theme="@style/launcherHomeTheme">
+            android:theme="@style/launcherHomeTheme"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

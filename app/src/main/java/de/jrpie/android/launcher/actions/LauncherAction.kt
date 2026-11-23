@@ -21,6 +21,7 @@ import de.jrpie.android.launcher.apps.togglePrivateSpaceLock
 import de.jrpie.android.launcher.preferences.LauncherPreferences
 import de.jrpie.android.launcher.ui.list.AbstractListActivity
 import de.jrpie.android.launcher.ui.list.AppListActivity
+import de.jrpie.android.launcher.ui.list.AppListOverlayHost
 import de.jrpie.android.launcher.ui.settings.SettingsActivity
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
@@ -299,33 +300,35 @@ fun openAppsList(
     hidden: Boolean = false,
     private: Boolean = false
 ) {
+    val favoritesVisibility = if (favorite) {
+        AppFilter.Companion.AppSetVisibility.EXCLUSIVE
+    } else {
+        AppFilter.Companion.AppSetVisibility.VISIBLE
+    }
+    val hiddenVisibility = if (hidden) {
+        AppFilter.Companion.AppSetVisibility.EXCLUSIVE
+    } else {
+        AppFilter.Companion.AppSetVisibility.HIDDEN
+    }
+    val privateSpaceVisibility = if (private) {
+        AppFilter.Companion.AppSetVisibility.EXCLUSIVE
+    } else if (!hidden && LauncherPreferences.apps().hidePrivateSpaceApps()) {
+        AppFilter.Companion.AppSetVisibility.HIDDEN
+    } else {
+        AppFilter.Companion.AppSetVisibility.VISIBLE
+    }
+
+    // The home screen shows the list in its own window, which opens the keyboard faster.
+    if ((context as? AppListOverlayHost)
+            ?.showAppList(favoritesVisibility, hiddenVisibility, privateSpaceVisibility) == true
+    ) {
+        return
+    }
+
     val intent = Intent(context, AppListActivity::class.java)
-    intent.putExtra(
-        AbstractListActivity.KEY_FAVORITES_VISIBILITY,
-        if (favorite) {
-            AppFilter.Companion.AppSetVisibility.EXCLUSIVE
-        } else {
-            AppFilter.Companion.AppSetVisibility.VISIBLE
-        }
-    )
-    intent.putExtra(
-        AbstractListActivity.KEY_HIDDEN_VISIBILITY,
-        if (hidden) {
-            AppFilter.Companion.AppSetVisibility.EXCLUSIVE
-        } else {
-            AppFilter.Companion.AppSetVisibility.HIDDEN
-        }
-    )
-    intent.putExtra(
-        AbstractListActivity.KEY_PRIVATE_SPACE_VISIBILITY,
-        if (private) {
-            AppFilter.Companion.AppSetVisibility.EXCLUSIVE
-        } else if (!hidden && LauncherPreferences.apps().hidePrivateSpaceApps()) {
-            AppFilter.Companion.AppSetVisibility.HIDDEN
-        } else {
-            AppFilter.Companion.AppSetVisibility.VISIBLE
-        }
-    )
+    intent.putExtra(AbstractListActivity.KEY_FAVORITES_VISIBILITY, favoritesVisibility)
+    intent.putExtra(AbstractListActivity.KEY_HIDDEN_VISIBILITY, hiddenVisibility)
+    intent.putExtra(AbstractListActivity.KEY_PRIVATE_SPACE_VISIBILITY, privateSpaceVisibility)
 
     context.startActivity(intent)
 }

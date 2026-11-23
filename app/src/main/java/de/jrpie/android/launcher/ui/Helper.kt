@@ -120,6 +120,24 @@ fun openKeyboardIfEnabled(activity: Activity, searchView: SearchView) {
 }
 
 /**
+ * Focuses the text field of this [SearchView] and shows the keyboard right away.
+ *
+ * Only works if the window already has input focus, as the home screen does when it shows
+ * the app list. [openKeyboardIfEnabled] is for windows that are still being created:
+ * there the request has to wait until the window gains focus.
+ */
+fun SearchView.showKeyboardNow() {
+    requestFocus()
+    val textField = findFocus() ?: return
+    val inputMethodManager =
+        context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+    if (!inputMethodManager.showSoftInput(textField, 0)) {
+        // the input connection is not set up yet
+        textField.post { inputMethodManager.showSoftInput(textField, 0) }
+    }
+}
+
+/**
  * Applies the settings [LauncherPreferences.functionality.searchAutoOpenKeyboard]
  * and [LauncherPreferences.functionality.searchAutoCloseKeyboard]
  * to a combination of [RecyclerView] and [SearchView]
