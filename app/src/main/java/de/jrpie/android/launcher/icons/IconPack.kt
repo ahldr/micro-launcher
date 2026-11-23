@@ -1,6 +1,7 @@
 package de.jrpie.android.launcher.icons
 
 import android.content.Context
+import android.content.pm.LauncherActivityInfo
 import android.graphics.drawable.Drawable
 import de.jrpie.android.launcher.Application
 import de.jrpie.android.launcher.apps.AppInfo
@@ -18,6 +19,10 @@ interface IconPack {
 
     fun loadIcon(context: Context, info: AppInfo): Drawable?
     fun loadBadgedIcon(context: Context, info: AppInfo): Drawable?
+
+    fun loadBadgedIcon(context: Context, activityInfo: LauncherActivityInfo): Drawable? {
+        return loadBadgedIcon(context, AppInfo.fromLauncherActivityInfo(activityInfo))
+    }
 
     companion object {
         fun getSelectedIconPack(context: Context?): IconPack {
