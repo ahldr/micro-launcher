@@ -51,8 +51,23 @@ android {
         unitTests.isReturnDefaultValues = true
     }
 
+    // Release signing is configured through environment variables (set by CI,
+    // or exported locally). Without them the release APK is left unsigned.
+    val releaseKeystoreFile = System.getenv("RELEASE_KEYSTORE_FILE")
+    signingConfigs {
+        if (!releaseKeystoreFile.isNullOrEmpty()) {
+            create("release") {
+                storeFile = file(releaseKeystoreFile)
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
