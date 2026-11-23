@@ -62,9 +62,16 @@ class ListFragmentApps : Fragment(), UIObject {
     private val host: AppListHost?
         get() = activity as? AppListHost
 
+    // The adapter is only created in [adjustLayout] (onStart), but the listeners set up in
+    // [onViewCreated] can be called earlier: when the activity is recreated, restoring the
+    // search field's text calls onQueryTextChange. The new adapter then picks up that text.
+    private val hasAdapter: Boolean
+        get() = ::appsRecyclerAdapter.isInitialized
+
     private var sharedPreferencesListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-            if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+            if (hasAdapter
+                && lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
                 && host?.isAppListShown != false
             ) {
                 appsRecyclerAdapter.updateAppsList()
@@ -91,6 +98,9 @@ class ListFragmentApps : Fragment(), UIObject {
             androidx.appcompat.widget.SearchView.OnQueryTextListener {
 
             override fun onQueryTextSubmit(query: String): Boolean {
+                if (!hasAdapter) {
+                    return true
+                }
                 appsRecyclerAdapter.setSearchString(query)
 
                 if (LauncherPreferences.functionality().searchWeb()) {
@@ -113,6 +123,9 @@ class ListFragmentApps : Fragment(), UIObject {
             }
 
             override fun onQueryTextChange(newText: String): Boolean {
+                if (!hasAdapter) {
+                    return false
+                }
 
                 if (newText == " " &&
                     !appsRecyclerAdapter.disableAutoLaunch &&
@@ -127,13 +140,21 @@ class ListFragmentApps : Fragment(), UIObject {
                     return false
                 }
 
-                appsRecyclerAdapter.setSearchString(newText, triggerAutoLaunch = !clearingQuery)
+                // Never auto launch from a list that isn't visible: restoring the search
+                // field's text after the home screen was recreated also ends up here.
+                appsRecyclerAdapter.setSearchString(
+                    newText,
+                    triggerAutoLaunch = !clearingQuery && host?.isAppListShown != false
+                )
                 return false
             }
         })
 
         binding.listAppsCheckBoxFavorites.setOnClickListener {
             val host = host ?: return@setOnClickListener
+            if (!hasAdapter) {
+                return@setOnClickListener
+            }
             host.favoritesVisibility =
                 if (binding.listAppsCheckBoxFavorites.isChecked) {
                     AppFilter.Companion.AppSetVisibility.EXCLUSIVE
@@ -146,10 +167,11 @@ class ListFragmentApps : Fragment(), UIObject {
 
         closeKeyboardOnScroll(requireActivity(), binding.listAppsRview)
 
-        // The adapter is created in onStart, before the view lifecycle is started,
-        // so it exists whenever this observer is called.
+        // Only called once the view lifecycle is started, after onStart created the adapter.
         (requireContext().applicationContext as Application).apps.observe(viewLifecycleOwner) {
-            appsRecyclerAdapter.updateAppsListIfChanged()
+            if (hasAdapter) {
+                appsRecyclerAdapter.updateAppsListIfChanged()
+            }
         }
 
         LauncherPreferences.getSharedPreferences()
