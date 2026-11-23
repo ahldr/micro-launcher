@@ -3,6 +3,8 @@ package de.jrpie.android.launcher.ui.list
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.view.WindowManager.LayoutParams.SOFT_INPUT_MASK_STATE
+import android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
 import android.window.OnBackInvokedDispatcher
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.lifecycle.Lifecycle
@@ -68,6 +70,18 @@ class AppListActivity : AbstractListActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (LauncherPreferences.functionality().searchAutoOpenKeyboard()) {
+            // Let the system show the keyboard as soon as this window gains focus.
+            // Otherwise it only appears after SearchView has set up its input connection
+            // and sent a show request of its own, one round trip later.
+            // Since API 28 this requires a focused text field when the window gains focus,
+            // which applyKeyboardSettings() takes care of.
+            window.setSoftInputMode(
+                (window.attributes.softInputMode and SOFT_INPUT_MASK_STATE.inv())
+                        or SOFT_INPUT_STATE_VISIBLE
+            )
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             onBackInvokedDispatcher.registerOnBackInvokedCallback(

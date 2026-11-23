@@ -55,10 +55,11 @@ class AppsRecyclerAdapter(
     var disableAutoLaunch: Boolean = false
 
     init {
+        // LiveData delivers the current list once the activity is started,
+        // so populating the list here as well would build it twice.
         apps.observe(this.activity as AppCompatActivity) {
             updateAppsList()
         }
-        updateAppsList()
     }
 
 
