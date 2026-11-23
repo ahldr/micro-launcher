@@ -1,6 +1,7 @@
 package de.jrpie.android.launcher.icons
 
 import android.content.Context
+import android.content.pm.LauncherActivityInfo
 import android.graphics.drawable.Drawable
 import de.jrpie.android.launcher.R
 import de.jrpie.android.launcher.apps.AppInfo
@@ -41,6 +42,10 @@ data object DefaultIconPack : IconPack {
 
     override fun loadBadgedIcon(context: Context, info: AppInfo): Drawable? {
         return info.getLauncherActivityInfo(context)?.getBadgedIcon(0)
+    }
+
+    override fun loadBadgedIcon(context: Context, activityInfo: LauncherActivityInfo): Drawable? {
+        return activityInfo.getBadgedIcon(0)
     }
 }
 

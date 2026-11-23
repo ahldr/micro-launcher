@@ -185,7 +185,7 @@ fun getApps(
         }
         try {
             launcherApps.getActivityList(null, user).forEach {
-                loadList.add(DetailedAppInfo(it, iconPack.loadBadgedIcon(context, AppInfo.fromLauncherActivityInfo(it)), it.user == privateSpaceUser))
+                loadList.add(DetailedAppInfo(it, iconPack.loadBadgedIcon(context, it), it.user == privateSpaceUser))
             }
         } catch (e: Exception) {
             // getActivityList seems to be broken on some Android distributions.

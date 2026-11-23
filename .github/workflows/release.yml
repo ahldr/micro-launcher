@@ -29,6 +29,28 @@ jobs:
         fi
         echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
 
+    - name: Validate signing secrets
+      env:
+        RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+        RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+      run: |
+        missing=0
+        for name in RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+          if [ -z "${!name}" ]; then
+            echo "::error::Secret $name is not set (gh secret set $name -R ${{ github.repository }})"
+            missing=1
+          fi
+        done
+        [ "$missing" -eq 0 ] || exit 1
+        if ! keytool -list -keystore "$RUNNER_TEMP/release.keystore" \
+             -storepass:env RELEASE_KEYSTORE_PASSWORD -alias "$RELEASE_KEY_ALIAS" >/dev/null 2>"$RUNNER_TEMP/keytool.err"; then
+          echo "::error::Keystore check failed: $(head -c 300 "$RUNNER_TEMP/keytool.err")"
+          echo "Aliases in keystore:"
+          keytool -list -keystore "$RUNNER_TEMP/release.keystore" -storepass:env RELEASE_KEYSTORE_PASSWORD 2>&1 | grep -i -E "entry|type" || true
+          exit 1
+        fi
+
     - name: Build signed release APK
       env:
         RELEASE_KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
@@ -42,7 +64,8 @@ jobs:
     - name: Verify signature
       run: |
         APK=$(ls app/build/outputs/apk/default/release/*.apk | head -1)
-        "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs "$APK"
+        APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+        "$APKSIGNER" verify --print-certs "$APK"
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
