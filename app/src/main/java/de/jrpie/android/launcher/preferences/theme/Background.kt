@@ -19,31 +19,58 @@ enum class Background(val id: Int, val dim: Boolean = false, val blur: Boolean =
         theme.applyStyle(id, true)
     }
 
+    /**
+     * Whether the content behind is blurred. Blur needs Android 12,
+     * older devices get a stronger dim instead (see [dimAmount]).
+     */
+    fun blurs(): Boolean {
+        return blur && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    }
+
+    /**
+     * How strongly the content behind is dimmed (0 to 1).
+     */
+    fun dimAmount(): Float {
+        if (!dim || LauncherPreferences.theme().colorTheme() == ColorTheme.LIGHT) {
+            return 0f
+        }
+        // TODO: add a setting to change this?
+        // replace blur by more intense dim on old devices
+        return if (blur && !blurs()) 0.8f else 0.7f
+    }
+
     fun applyToWindow(window: Window) {
         val layoutParams: WindowManager.LayoutParams = window.attributes
-        // TODO: add a setting to change this?
-        var dimAmount = 0.7f
-        val dim = this.dim
-        var blur = this.blur
-
-        // replace blur by more intense dim on old devices
-        if (blur && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-            blur = false
-            dimAmount += 0.1f
-        }
-
-        if (LauncherPreferences.theme().colorTheme() == ColorTheme.LIGHT) {
-            dimAmount = 0f
-        }
 
         if (dim) {
-            layoutParams.dimAmount = dimAmount
+            layoutParams.dimAmount = dimAmount()
             window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         }
+        setBlurBehind(window, layoutParams, blurs())
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        window.attributes = layoutParams
+    }
+
+    companion object {
+        /**
+         * Blurs (or stops blurring) what is behind [window], without changing its dim.
+         */
+        fun applyBlurToWindow(window: Window, blur: Boolean) {
+            val layoutParams = window.attributes
+            setBlurBehind(window, layoutParams, blur)
+            window.attributes = layoutParams
+        }
+
+        private fun setBlurBehind(
+            window: Window,
+            layoutParams: WindowManager.LayoutParams,
+            blur: Boolean
+        ) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                return
+            }
             if (blur) {
                 window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
                 layoutParams.blurBehindRadius = 10
@@ -52,7 +79,5 @@ enum class Background(val id: Int, val dim: Boolean = false, val blur: Boolean =
                 layoutParams.blurBehindRadius = 0
             }
         }
-
-        window.attributes = layoutParams
     }
 }

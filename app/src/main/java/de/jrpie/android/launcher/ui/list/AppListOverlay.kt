@@ -14,6 +14,7 @@ import de.jrpie.android.launcher.preferences.LauncherPreferences
 import de.jrpie.android.launcher.preferences.theme.Background
 import de.jrpie.android.launcher.preferences.theme.ColorTheme
 import de.jrpie.android.launcher.ui.list.apps.ListFragmentApps
+import kotlin.math.roundToInt
 
 private const val CLOSE_ANIMATION_DURATION_MS = 100L
 
@@ -40,6 +41,9 @@ class AppListOverlay(
 
     // Set by [show], cleared by [startOpenAnimation].
     private var openAnimationPending = false
+
+    // Whether [applyBackground] made the home screen's window blur the wallpaper.
+    private var windowBlurred = false
 
     private val header = AppListHeader(activity, binding, host) { hide() }
 
@@ -154,15 +158,25 @@ class AppListOverlay(
                 attributes.recycle()
             }
         } else {
-            binding.root.background = null
-            // Dims or blurs the wallpaper behind the home screen's window,
-            // as it does behind the window of [AppListActivity].
-            background.applyToWindow(activity.window)
+            // The list draws the dim itself instead of setting FLAG_DIM_BEHIND on the home
+            // screen's window, so that it is guaranteed to go away together with the list.
+            // Same strength as the dim behind the window of [AppListActivity].
+            val dimColor = Color.argb((background.dimAmount() * 255).roundToInt(), 0, 0, 0)
+            binding.root.setBackgroundColor(dimColor)
+            setSystemBarColors(dimColor, dimColor)
+            // The wallpaper is drawn behind the window, so only the window can blur it.
+            if (background.blurs()) {
+                Background.applyBlurToWindow(activity.window, true)
+                windowBlurred = true
+            }
         }
     }
 
     private fun resetBackground() {
-        Background.TRANSPARENT.applyToWindow(activity.window)
+        if (windowBlurred) {
+            Background.applyBlurToWindow(activity.window, false)
+            windowBlurred = false
+        }
         // the home screen's theme uses transparent system bars
         setSystemBarColors(Color.TRANSPARENT, Color.TRANSPARENT)
     }
