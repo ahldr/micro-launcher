@@ -9,6 +9,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.preference.DropDownPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -24,6 +25,8 @@ import de.jrpie.android.launcher.icons.loadIconPacks
 import de.jrpie.android.launcher.preferences.LauncherPreferences
 import de.jrpie.android.launcher.preferences.theme.ColorTheme
 import de.jrpie.android.launcher.setDefaultHomeScreen
+import de.jrpie.android.launcher.ui.categories.ManageCategoriesActivity
+import de.jrpie.android.launcher.ui.list.apps.GridEditor
 import de.jrpie.android.launcher.ui.styledAlertDialogBuilder
 import de.jrpie.android.launcher.ui.widgets.manage.ManageWidgetPanelsActivity
 import de.jrpie.android.launcher.ui.widgets.manage.ManageWidgetsActivity
@@ -73,7 +76,11 @@ class SettingsFragmentLauncher : PreferenceFragmentCompat() {
 
     private var sharedPreferencesListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, prefKey ->
-            if (prefKey?.startsWith("clock.") == true) {
+            if (prefKey?.startsWith("clock.") == true
+                || prefKey?.startsWith("list.") == true
+                || prefKey?.startsWith("favorites.") == true
+                || prefKey == LauncherPreferences.apps().keys().favoriteCategories()
+            ) {
                 updateVisibility()
             }
         }
@@ -106,12 +113,51 @@ class SettingsFragmentLauncher : PreferenceFragmentCompat() {
             LauncherPreferences.apps().keys().hidePausedApps()
         )
         hidePausedApps?.isVisible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+
+        // The grids can only be customized if apps are shown in a grid.
+        val appListLayout = LauncherPreferences.list().layout()
+        updateGridPreference(
+            LauncherPreferences.list().keys().grid(),
+            appListLayout.isGrid
+        )
+        updateGridPreference(
+            LauncherPreferences.favorites().keys().grid(),
+            LauncherPreferences.favorites().layout().resolve(appListLayout).isGrid
+        )
+
+        findPreference<androidx.preference.Preference>(
+            LauncherPreferences.apps().keys().favoriteCategories()
+        )?.summary = LauncherPreferences.apps().favoriteCategories().categories
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString(", ") { it.name }
+            ?: getString(R.string.settings_favorites_categories_summary)
     }
 
-    override fun onStart() {
-        super.onStart()
+    private fun updateGridPreference(key: String, isGrid: Boolean) {
+        findPreference<androidx.preference.Preference>(key)?.apply {
+            isEnabled = isGrid
+            setSummary(
+                if (isGrid) {
+                    R.string.settings_grid_customize_summary
+                } else {
+                    R.string.settings_grid_customize_summary_not_grid
+                }
+            )
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // not in onStart: in a ViewPager, the fragment is paused and resumed when switching tabs
         LauncherPreferences.getSharedPreferences()
             .registerOnSharedPreferenceChangeListener(sharedPreferencesListener)
+
+        // The layouts can also be changed while customizing the grid.
+        findPreference<DropDownPreference>(LauncherPreferences.list().keys().layout())
+            ?.value = LauncherPreferences.list().layout().name
+        findPreference<DropDownPreference>(LauncherPreferences.favorites().keys().layout())
+            ?.value = LauncherPreferences.favorites().layout().name
+        updateVisibility()
     }
 
     override fun onPause() {
@@ -187,6 +233,25 @@ class SettingsFragmentLauncher : PreferenceFragmentCompat() {
         )
         hiddenApps?.setOnPreferenceClickListener {
             openAppsList(requireContext(), favorite = false, hidden = true)
+            true
+        }
+
+        findPreference<androidx.preference.Preference>(
+            LauncherPreferences.list().keys().grid()
+        )?.setOnPreferenceClickListener {
+            GridEditor.open(requireContext(), favorites = false)
+            true
+        }
+        findPreference<androidx.preference.Preference>(
+            LauncherPreferences.favorites().keys().grid()
+        )?.setOnPreferenceClickListener {
+            GridEditor.open(requireContext(), favorites = true)
+            true
+        }
+        findPreference<androidx.preference.Preference>(
+            LauncherPreferences.apps().keys().favoriteCategories()
+        )?.setOnPreferenceClickListener {
+            startActivity(Intent(requireActivity(), ManageCategoriesActivity::class.java))
             true
         }
 

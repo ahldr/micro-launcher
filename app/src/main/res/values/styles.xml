@@ -180,6 +180,7 @@
         <item name="android:textColorPrimary">?android:textColor</item>
         <item name="android:textColorSecondary">?android:textColor</item>
         <item name="android:textColorTertiary">?android:textColor</item>
+        <item name="android:textColorAlertDialogListItem">?android:textColor</item>
         <item name="android:shadowRadius">0</item>
         <item name="android:shadowDx">0</item>
         <item name="android:shadowDy">0</item>

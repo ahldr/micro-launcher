@@ -21,6 +21,13 @@ interface AppListHost {
     val isAppListShown: Boolean
         get() = true
 
+    /**
+     * Whether the list is shown to customize its grid (see
+     * [de.jrpie.android.launcher.ui.list.apps.GridEditor]) instead of to launch apps.
+     */
+    val customizeGrid: Boolean
+        get() = false
+
     fun updateTitle() {}
 }
 

@@ -1,16 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Margins, the icon's maximum width and the text size are set according to a GridSpec. -->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/list_apps_row_container"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="5sp">
+    android:layout_marginLeft="5sp"
+    android:layout_marginTop="5sp"
+    android:layout_marginRight="5sp"
+    android:layout_marginBottom="5sp">
 
+    <!-- as wide as the column allows, up to the icon size -->
     <ImageView
         android:id="@+id/list_apps_row_icon"
-        android:layout_width="40sp"
-        android:layout_height="40sp"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintDimensionRatio="H,1:1"
+        app:layout_constraintWidth_max="40sp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"

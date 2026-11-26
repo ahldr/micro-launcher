@@ -212,6 +212,16 @@
     <string name="settings_list_app_name_format_item_uppercase">Uppercase</string>
     <string name="settings_list_app_name_format_item_lowercase">Lowercase</string>
 
+    <string name="settings_grid_customize">Customize grid</string>
+    <string name="settings_grid_customize_summary">Columns, icon size, padding and spacing</string>
+    <string name="settings_grid_customize_summary_not_grid">Only available for grid layouts</string>
+
+    <string name="settings_launcher_section_favorites">Favorites</string>
+    <string name="settings_favorites_categories">Categories</string>
+    <string name="settings_favorites_categories_summary">Group favorites under headings, e.g. Messaging</string>
+    <string name="settings_favorites_layout">Layout of favorites</string>
+    <string name="settings_favorites_layout_item_same_as_app_list">Same as app list</string>
+
     <!--
       -
       - Settings : Meta
@@ -270,8 +280,49 @@
     <string name="list_app_hidden_remove">Show</string>
     <string name="list_app_rename">Rename</string>
 
+    <string name="list_app_category">Category</string>
+
     <string name="list_apps_search_hint">Search</string>
     <string name="list_apps_search_hint_no_auto_launch">Search (no auto launch)</string>
+
+    <string name="list_favorites_empty">No favorite apps yet.\nLong-press an app to add it.</string>
+    <string name="list_favorites_category_other">Other</string>
+
+    <!-- Customizing the grid of the app list, previewed on the list itself -->
+    <string name="grid_editor_columns">Columns</string>
+    <string name="grid_editor_columns_auto">auto (%1$d)</string>
+    <string name="grid_editor_icon_size">Icon size</string>
+    <string name="grid_editor_label_size">Label size</string>
+    <string name="grid_editor_side_padding">Padding</string>
+    <string name="grid_editor_row_spacing">Row spacing</string>
+    <string name="grid_editor_labels">App names</string>
+    <string name="grid_editor_reset">Reset</string>
+    <string name="grid_editor_save">Save</string>
+
+    <!-- Categories of favorite apps -->
+    <string name="favorite_categories_title">Categories</string>
+    <string name="favorite_categories_empty">Group your favorite apps under headings.\nTap + to create a category, e.g. Messaging.</string>
+    <plurals name="favorite_categories_number_of_apps">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+    <string name="favorite_categories_no_apps">No apps yet. Tap to choose some.</string>
+    <string name="dialog_select_category_title">Category of %1$s</string>
+    <string name="dialog_select_category_none">None</string>
+    <string name="dialog_category_new">New category</string>
+    <string name="dialog_category_rename">Rename category</string>
+    <string name="dialog_category_name_hint">e.g. Messaging</string>
+    <string name="dialog_category_apps_title">Apps in %1$s</string>
+    <string name="dialog_category_apps_no_favorites">You have no favorite apps yet. Long-press an app in the app list to add it to your favorites.</string>
+    <string name="dialog_category_delete">Delete</string>
+    <string name="favorite_categories_choose_apps">Choose apps</string>
+    <string name="snackbar_category_deleted">Deleted %1$s</string>
+    <string name="content_description_add_category">Add category</string>
+    <string name="content_description_reorder_category">Drag to reorder</string>
+    <string name="content_description_move_up">Move up</string>
+    <string name="content_description_move_down">Move down</string>
+    <string name="content_description_rename_category">Rename</string>
+    <string name="content_description_delete_category">Delete</string>
 
     <string name="list_other_settings">μLauncher Settings</string>
     <string name="list_other_list">All Applications</string>

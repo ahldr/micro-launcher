@@ -20,6 +20,7 @@ Usually, only two or three characters are needed, which is much faster than scro
 When long-pressing an app, additional options are shown:
 * Rename the app
 * Add to / remove from Favorites: Adds the app to the [Favorite Apps](#favorite-apps) list or removes it from there.
+* Category (only for favorites): Chooses the [category](#categories) of the app.
 * Hide / Show: This hides the app from all drawers (except from [Hidden Apps](#hidden-apps)) or makes it visible again if it was hidden.
 * App Info: Opens the system settings page for the app.
 * Uninstall: Tries to uninstall the app or remove the shortcut.
@@ -38,6 +39,19 @@ Only shows favorite apps.
 Pressing the star icon on the bottom right of any app drawer toggles whether only favorite apps should be shown.
 Additionally, the `Favorite Apps` action can be used to launch this drawer directly.
 By default, it is bound to `Swipe up (left edge)`.
+
+The favorites can have [a layout of their own](/docs/settings/#layout-of-favorites),
+e.g. only icons, and [their own grid](/docs/settings/#customize-grid-1).
+
+### Categories
+
+Favorite apps can be grouped into categories, e.g. Messaging or Media,
+which are shown under headings in the order chosen in [the settings](/docs/settings/#categories).
+Favorites that are in no category are shown last.
+
+To put an app into a category, long-press it and choose the category icon.
+Long-pressing a heading allows to choose the apps of the category, rename it or delete it.
+Deleting a category doesn't remove its apps from the favorites.
 
 ## Private Space
 

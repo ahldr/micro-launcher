@@ -6,33 +6,52 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/list_apps_rview"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginLeft="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginRight="16dp"
-        android:layout_weight="1"
-        android:fadeScrollbars="false"
-        app:fastScrollEnabled="true"
-        app:fastScrollHorizontalThumbDrawable="@drawable/fast_scroll_thumb_drawable"
-        app:fastScrollHorizontalTrackDrawable="@drawable/fast_scroll_track_drawable"
-        app:fastScrollVerticalThumbDrawable="@drawable/fast_scroll_thumb_drawable"
-        app:fastScrollVerticalTrackDrawable="@drawable/fast_scroll_track_drawable">
+        android:layout_weight="1">
+
+        <!-- horizontal margins are set by ListFragmentApps -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/list_apps_rview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginStart="16dp"
+            android:layout_marginLeft="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginRight="16dp"
+            android:fadeScrollbars="false"
+            app:fastScrollEnabled="true"
+            app:fastScrollHorizontalThumbDrawable="@drawable/fast_scroll_thumb_drawable"
+            app:fastScrollHorizontalTrackDrawable="@drawable/fast_scroll_track_drawable"
+            app:fastScrollVerticalThumbDrawable="@drawable/fast_scroll_thumb_drawable"
+            app:fastScrollVerticalTrackDrawable="@drawable/fast_scroll_track_drawable">
 
 
-        <!--
-        android:scrollbars="vertical"
-        -->
+            <!--
+            android:scrollbars="vertical"
+            -->
 
-        <!--:fastScrollAlwaysVisible="true"-->
+            <!--:fastScrollAlwaysVisible="true"-->
 
-    </androidx.recyclerview.widget.RecyclerView>
+        </androidx.recyclerview.widget.RecyclerView>
+
+        <TextView
+            android:id="@+id/list_apps_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:alpha="0.6"
+            android:gravity="center"
+            android:lineSpacingMultiplier="1.3"
+            android:padding="32dp"
+            android:text="@string/list_favorites_empty"
+            android:textSize="14sp"
+            android:visibility="gone" />
+    </FrameLayout>
 
     <LinearLayout
+        android:id="@+id/list_apps_search_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -60,5 +79,9 @@
 
     </LinearLayout>
 
+    <include
+        android:id="@+id/list_apps_grid_editor"
+        layout="@layout/list_apps_grid_editor"
+        android:visibility="gone" />
 
 </LinearLayout>

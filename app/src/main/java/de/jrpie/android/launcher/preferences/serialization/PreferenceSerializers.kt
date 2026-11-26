@@ -3,8 +3,10 @@
 package de.jrpie.android.launcher.preferences.serialization
 
 import de.jrpie.android.launcher.apps.AbstractAppInfo
+import de.jrpie.android.launcher.apps.FavoriteCategories
 import de.jrpie.android.launcher.apps.PinnedShortcutInfo
 import de.jrpie.android.launcher.icons.IconPackHandle
+import de.jrpie.android.launcher.preferences.list.GridSpec
 import de.jrpie.android.launcher.widgets.Widget
 import de.jrpie.android.launcher.widgets.WidgetPanel
 import eu.jonahbauer.android.preference.annotations.serializer.PreferenceSerializationException
@@ -105,6 +107,52 @@ class MapAbstractAppInfoStringPreferenceSerializer :
         return value?.associateTo(HashMap()) {
             val entry = Json.decodeFromString<MapEntry>(it.toString())
             Pair(entry.key, entry.value)
+        }
+    }
+}
+
+private val lenientJson = Json {
+    ignoreUnknownKeys = true
+    // keep stored values when the defaults change
+    encodeDefaults = true
+}
+
+class GridSpecSerializer :
+    PreferenceSerializer<GridSpec, java.lang.String?> {
+    @Throws(PreferenceSerializationException::class)
+    override fun serialize(value: GridSpec): java.lang.String {
+        return lenientJson.encodeToString(value) as java.lang.String
+    }
+
+    @Throws(PreferenceSerializationException::class)
+    override fun deserialize(value: java.lang.String?): GridSpec {
+        value ?: return GridSpec()
+        return try {
+            lenientJson.decodeFromString<GridSpec>(value.toString()).coerced()
+        } catch (e: IllegalArgumentException) {
+            // includes SerializationException
+            Log.w(LOG_TAG, "Failed to deserialize GridSpec", e)
+            GridSpec()
+        }
+    }
+}
+
+class FavoriteCategoriesSerializer :
+    PreferenceSerializer<FavoriteCategories, java.lang.String?> {
+    @Throws(PreferenceSerializationException::class)
+    override fun serialize(value: FavoriteCategories): java.lang.String {
+        return lenientJson.encodeToString(value) as java.lang.String
+    }
+
+    @Throws(PreferenceSerializationException::class)
+    override fun deserialize(value: java.lang.String?): FavoriteCategories {
+        value ?: return FavoriteCategories()
+        return try {
+            lenientJson.decodeFromString<FavoriteCategories>(value.toString())
+        } catch (e: IllegalArgumentException) {
+            // includes SerializationException
+            Log.w(LOG_TAG, "Failed to deserialize FavoriteCategories", e)
+            FavoriteCategories()
         }
     }
 }

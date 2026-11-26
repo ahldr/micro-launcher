@@ -63,6 +63,11 @@ fun AbstractAppInfo.toggleFavorite() {
     if (favorites.contains(this)) {
         favorites.remove(this)
         Log.i(LOG_TAG, "Removing $this from favorites.")
+        // When it becomes a favorite again, it starts without a category.
+        val categories = LauncherPreferences.apps().favoriteCategories()
+        if (categories.categoryOf(this) != null) {
+            LauncherPreferences.apps().favoriteCategories(categories.assign(this, null))
+        }
     } else {
         Log.i(LOG_TAG, "Adding $this to favorites.")
         favorites.add(this)

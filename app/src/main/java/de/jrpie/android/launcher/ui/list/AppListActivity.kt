@@ -2,6 +2,7 @@ package de.jrpie.android.launcher.ui.list
 
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import android.view.WindowManager.LayoutParams.SOFT_INPUT_MASK_STATE
 import android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
 import android.window.OnBackInvokedDispatcher
@@ -28,7 +29,7 @@ class AppListActivity : AbstractListActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (LauncherPreferences.functionality().searchAutoOpenKeyboard()) {
+        if (LauncherPreferences.functionality().searchAutoOpenKeyboard() && !customizeGrid) {
             // Let the system show the keyboard as soon as this window gains focus.
             // Otherwise it only appears after SearchView has set up its input connection
             // and sent a show request of its own, one round trip later.
@@ -55,6 +56,11 @@ class AppListActivity : AbstractListActivity() {
 
         unlockPrivateSpaceIfExclusive(this, this)
         header = AppListHeader(this, binding, this) { finish() }
+        if (customizeGrid) {
+            // Leaving the preview for the settings would be confusing.
+            // Keep the space though, such that the title is where it usually is.
+            binding.listSettings.visibility = View.INVISIBLE
+        }
 
         val onThemeChanged = (this.applicationContext as Application).onThemeChanged
         lifecycleScope.launch {

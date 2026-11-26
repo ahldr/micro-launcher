@@ -25,6 +25,9 @@
             android:name=".ui.widgets.manage.ManageWidgetPanelsActivity"
             android:exported="false" />
         <activity
+            android:name=".ui.categories.ManageCategoriesActivity"
+            android:exported="false" />
+        <activity
             android:name=".ui.widgets.WidgetPanelActivity"
             android:exported="false" />
         <activity

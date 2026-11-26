@@ -5,9 +5,14 @@ import java.util.Set;
 
 import de.jrpie.android.launcher.R;
 import de.jrpie.android.launcher.actions.lock.LockMethod;
+import de.jrpie.android.launcher.apps.FavoriteCategories;
 import de.jrpie.android.launcher.icons.IconPackHandle;
 import de.jrpie.android.launcher.preferences.list.AppNameFormat;
+import de.jrpie.android.launcher.preferences.list.FavoritesLayout;
+import de.jrpie.android.launcher.preferences.list.GridSpec;
 import de.jrpie.android.launcher.preferences.list.ListLayout;
+import de.jrpie.android.launcher.preferences.serialization.FavoriteCategoriesSerializer;
+import de.jrpie.android.launcher.preferences.serialization.GridSpecSerializer;
 import de.jrpie.android.launcher.preferences.serialization.IconPackHandleSerializer;
 import de.jrpie.android.launcher.preferences.serialization.MapAbstractAppInfoStringPreferenceSerializer;
 import de.jrpie.android.launcher.preferences.serialization.SetAbstractAppInfoPreferenceSerializer;
@@ -41,11 +46,17 @@ import eu.jonahbauer.android.preference.annotations.Preferences;
                         @Preference(name = "hide_bound_apps", type = boolean.class, defaultValue = "false"),
                         @Preference(name = "hide_paused_apps", type = boolean.class, defaultValue = "false"),
                         @Preference(name = "hide_private_space_apps", type = boolean.class, defaultValue = "false"),
+                        @Preference(name = "favorite_categories", type = FavoriteCategories.class, serializer = FavoriteCategoriesSerializer.class),
                 }),
                 @PreferenceGroup(name = "list", prefix = "settings_list_", suffix = "_key", value = {
                         @Preference(name = "layout", type = ListLayout.class, defaultValue = "DEFAULT"),
                         @Preference(name = "reverse_layout", type = boolean.class, defaultValue = "false"),
-                        @Preference(name = "app_name_format", type = AppNameFormat.class, defaultValue = "DEFAULT")
+                        @Preference(name = "app_name_format", type = AppNameFormat.class, defaultValue = "DEFAULT"),
+                        @Preference(name = "grid", type = GridSpec.class, serializer = GridSpecSerializer.class),
+                }),
+                @PreferenceGroup(name = "favorites", prefix = "settings_favorites_", suffix = "_key", value = {
+                        @Preference(name = "layout", type = FavoritesLayout.class, defaultValue = "SAME_AS_APP_LIST"),
+                        @Preference(name = "grid", type = GridSpec.class, serializer = GridSpecSerializer.class),
                 }),
                 @PreferenceGroup(name = "gestures", prefix = "settings_gesture_", suffix = "_key", value = {
                 }),

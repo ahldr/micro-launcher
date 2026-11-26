@@ -238,10 +238,23 @@ Changes how the apps are displayed when accessing the app drawer.
 - `Text`: Removes the app icons, shows only app titles in the drawer as a vertically-scrolled list.
     Work profile and private space apps are distinguished by a different label instead of a badge.
 - `Grid`: Shows apps with their app icon and title in a grid layout.
+- `Grid (only icons)`: Shows only the app icons in a grid layout.
 
 **type:**&nbsp;`dropdown`
 
-**options:**&nbsp;`Default`,`Text`,`Grid`
+**options:**&nbsp;`Default`,`Text`,`Grid`,`Grid (only icons)`
+
+### Customize grid
+
+Opens the app drawer with a panel to change the grid while the drawer previews every change:
+
+- Columns: `auto` fits as many columns as the screen width allows (this was the only option before).
+    A fixed number of columns applies to portrait orientation; in landscape, columns are added such that they keep their width.
+- Icon size, label size, padding (the space between the grid and the edges of the screen) and row spacing.
+- App names: switches between `Grid` and `Grid (only icons)`.
+
+Nothing changes until the changes are saved.
+Only available if the [layout of the app list](#layout-of-app-list) is a grid.
 
 ### Reverse the app list
 
@@ -249,6 +262,28 @@ Enable reverse alphabetical sorting of apps in the app drawer.
 Useful for keeping apps within easier reach from the keyboard.
 
 **type:**&nbsp;`toggle`
+
+## Favorites
+
+### Categories
+
+Group [favorite apps](/docs/app-drawer/#favorite-apps) under headings, e.g. Messaging or Media.
+Here, categories can be added, renamed, deleted and reordered (drag the handle).
+Tap a category to choose its apps.
+
+### Layout of favorites
+
+The favorites can have a different layout than the app list,
+e.g. to show only icons there while the app list shows names.
+
+**type:**&nbsp;`dropdown`
+
+**options:**&nbsp;`Same as app list`,`Default`,`Text`,`Grid`,`Grid (only icons)`
+
+### Customize grid
+
+Like [customizing the grid of the app list](#customize-grid), but for the favorites.
+Until it is customized, the favorites use the grid of the app list.
 
 ## Display
 
