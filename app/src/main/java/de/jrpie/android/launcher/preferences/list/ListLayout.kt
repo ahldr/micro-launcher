@@ -47,6 +47,10 @@ enum class ListLayout(
         R.layout.list_apps_row_variant_grid_only_icons,
         false
     ),
+    ;
+
+    val isGrid: Boolean
+        get() = this == GRID || this == GRID_ONLY_ICONS
 }
 
 private fun getNumColumns(context: Context, columnWidthSP: Float = 90f): Int {

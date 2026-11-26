@@ -38,6 +38,8 @@ import eu.jonahbauer.android.preference.annotations.Preferences;
                         @Preference(name = "hidden", type = Set.class, serializer = SetAbstractAppInfoPreferenceSerializer.class),
                         @Preference(name = "pinned_shortcuts", type = Set.class, serializer = SetPinnedShortcutInfoPreferenceSerializer.class),
                         @Preference(name = "custom_names", type = HashMap.class, serializer = MapAbstractAppInfoStringPreferenceSerializer.class),
+                        // the category of each favorite app that has one
+                        @Preference(name = "categories", type = HashMap.class, serializer = MapAbstractAppInfoStringPreferenceSerializer.class),
                         @Preference(name = "hide_bound_apps", type = boolean.class, defaultValue = "false"),
                         @Preference(name = "hide_paused_apps", type = boolean.class, defaultValue = "false"),
                         @Preference(name = "hide_private_space_apps", type = boolean.class, defaultValue = "false"),
@@ -45,7 +47,9 @@ import eu.jonahbauer.android.preference.annotations.Preferences;
                 @PreferenceGroup(name = "list", prefix = "settings_list_", suffix = "_key", value = {
                         @Preference(name = "layout", type = ListLayout.class, defaultValue = "DEFAULT"),
                         @Preference(name = "reverse_layout", type = boolean.class, defaultValue = "false"),
-                        @Preference(name = "app_name_format", type = AppNameFormat.class, defaultValue = "DEFAULT")
+                        @Preference(name = "app_name_format", type = AppNameFormat.class, defaultValue = "DEFAULT"),
+                        // the size of grids is stored using GridSetting
+                        @Preference(name = "favorites_hide_labels", type = boolean.class, defaultValue = "false"),
                 }),
                 @PreferenceGroup(name = "gestures", prefix = "settings_gesture_", suffix = "_key", value = {
                 }),

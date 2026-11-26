@@ -243,6 +243,13 @@ Changes how the apps are displayed when accessing the app drawer.
 
 **options:**&nbsp;`Default`,`Text`,`Grid`
 
+### Grid of app list / Grid of favorites
+
+Opens the app drawer to change the number of columns (`auto` fits as many as possible),
+the size of icons, the padding at the edges of the screen and the spacing between rows.
+The drawer shows every change right away.
+App names can be hidden in the favorites only.
+
 ### Reverse the app list
 
 Enable reverse alphabetical sorting of apps in the app drawer.

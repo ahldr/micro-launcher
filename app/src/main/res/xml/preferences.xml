@@ -185,6 +185,14 @@
             android:entryValues="@array/settings_list_layout_values"
             android:defaultValue="DEFAULT"
             app:useSimpleSummaryProvider="true" />
+        <Preference
+            android:key="@string/settings_list_grid_key"
+            android:title="@string/settings_list_grid"
+            android:summary="@string/settings_list_grid_summary" />
+        <Preference
+            android:key="@string/settings_list_grid_favorites_key"
+            android:title="@string/settings_list_grid_favorites"
+            android:summary="@string/settings_list_grid_favorites_summary" />
         <DropDownPreference
             android:key="list.app_name_format"
             android:title="@string/settings_list_app_name_format"

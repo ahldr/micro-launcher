@@ -47,6 +47,7 @@ sealed class AbstractListActivity : UIObjectActivity(), AppListHost {
         const val KEY_PRIVATE_SPACE_VISIBILITY = "privateSpaceVisibility"
         const val KEY_HIDDEN_VISIBILITY = "hiddenVisibility"
         const val KEY_FOR_GESTURE = "forGesture"
+        const val KEY_GRID_DIALOG = "gridDialog"
 
         enum class Intention {
             VIEW, // used for [AppListActivity]

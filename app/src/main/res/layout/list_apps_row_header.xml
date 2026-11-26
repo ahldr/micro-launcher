@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Heading of a category of favorite apps: ── name ────── -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingTop="16dp"
+    android:paddingBottom="4dp">
+
+    <View
+        android:layout_width="12dp"
+        android:layout_height="1dp"
+        android:alpha="0.25"
+        android:background="?android:textColor" />
+
+    <TextView
+        android:id="@+id/list_apps_header_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:alpha="0.6"
+        android:letterSpacing="0.06"
+        android:maxLines="1"
+        android:textSize="13sp"
+        tools:text="messaging" />
+
+    <View
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:layout_weight="1"
+        android:alpha="0.25"
+        android:background="?android:textColor" />
+
+</LinearLayout>

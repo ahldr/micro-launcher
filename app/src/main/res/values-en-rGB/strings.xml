@@ -186,4 +186,5 @@
     <string name="list_tab_app">Apps</string>
     <string name="list_tab_other">Other</string>
     <string name="list_app_delete">Uninstall</string>
+    <string name="settings_list_grid_favorites">Grid of favourites</string>
 </resources>

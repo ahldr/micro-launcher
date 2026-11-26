@@ -121,6 +121,17 @@ class AppContextMenu(
             }
         }
 
+        // only favorites are grouped by category
+        binding.appMenuTopCategory.apply {
+            setTooltipAndContentDescription(R.string.list_app_category)
+            isVisible =
+                LauncherPreferences.apps().favorites()?.contains(appInfo.getRawInfo()) == true
+            setOnClickListener { _ ->
+                appInfo.showCategoryDialog(activity)
+                dismiss()
+            }
+        }
+
         binding.appMenuTopHide.apply {
             if (LauncherPreferences.apps().hidden()?.contains(appInfo.getRawInfo()) == true) {
                 setTooltipAndContentDescription(R.string.list_app_hidden_remove)

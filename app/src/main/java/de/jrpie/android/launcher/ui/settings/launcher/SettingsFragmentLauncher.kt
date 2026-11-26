@@ -189,6 +189,16 @@ class SettingsFragmentLauncher : PreferenceFragmentCompat() {
             openAppsList(requireContext(), favorite = false, hidden = true)
             true
         }
+        findPreference<Preference>(getString(R.string.settings_list_grid_key))
+            ?.setOnPreferenceClickListener {
+                openAppsList(requireContext(), gridDialog = true)
+                true
+            }
+        findPreference<Preference>(getString(R.string.settings_list_grid_favorites_key))
+            ?.setOnPreferenceClickListener {
+                openAppsList(requireContext(), favorite = true, gridDialog = true)
+                true
+            }
 
         val lockMethod = findPreference<androidx.preference.Preference>(
             LauncherPreferences.actions().keys().lockMethod()

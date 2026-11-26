@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -20,6 +21,7 @@ import de.jrpie.android.launcher.apps.AppFilter
 import de.jrpie.android.launcher.databinding.ListAppsBinding
 import de.jrpie.android.launcher.preferences.LauncherPreferences
 import de.jrpie.android.launcher.preferences.list.AppNameFormat
+import de.jrpie.android.launcher.preferences.list.GridSetting
 import de.jrpie.android.launcher.preferences.list.ListLayout
 import de.jrpie.android.launcher.preferences.theme.ColorTheme
 import de.jrpie.android.launcher.ui.UIObject
@@ -45,6 +47,7 @@ class ListFragmentApps : Fragment(), UIObject {
      */
     private data class ListConfig(
         val layout: ListLayout,
+        val grid: Map<GridSetting, Int>,
         val reverseLayout: Boolean,
         val nameFormat: AppNameFormat,
         val colorTheme: ColorTheme,
@@ -74,7 +77,10 @@ class ListFragmentApps : Fragment(), UIObject {
                 && lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
                 && host?.isAppListShown != false
             ) {
-                appsRecyclerAdapter.updateAppsList()
+                // e.g. while the grid is customized (see [showGridDialog])
+                if (!updateLayout()) {
+                    appsRecyclerAdapter.updateAppsList()
+                }
             } else {
                 appsListOutdated = true
             }
@@ -117,7 +123,7 @@ class ListFragmentApps : Fragment(), UIObject {
                     }
 
                 } else {
-                    appsRecyclerAdapter.selectItem(0)
+                    appsRecyclerAdapter.selectFirstItem()
                 }
                 return true
             }
@@ -161,6 +167,8 @@ class ListFragmentApps : Fragment(), UIObject {
                 } else {
                     AppFilter.Companion.AppSetVisibility.VISIBLE
                 }
+            // the favorites can look different
+            updateLayout()
             appsRecyclerAdapter.setFavoritesVisibility(host.favoritesVisibility)
             host.updateTitle()
         }
@@ -197,9 +205,9 @@ class ListFragmentApps : Fragment(), UIObject {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
 
-        binding.listAppsRview.layoutManager?.let {
-            LauncherPreferences.list().layout().updateLayoutManager(requireContext(), it)
-        }
+        // the number of columns and the size of icons depend on the screen's width
+        listConfig = null
+        updateLayout()
 
     }
 
@@ -209,9 +217,32 @@ class ListFragmentApps : Fragment(), UIObject {
     override fun adjustLayout() {
         val host = host ?: return
 
+        if (!updateLayout() && appsListOutdated && host.isAppListShown) {
+            appsRecyclerAdapter.updateAppsList()
+            appsListOutdated = false
+        }
+
+        if (host.intention == AbstractListActivity.Companion.Intention.VIEW && host.isAppListShown) {
+            openKeyboardIfEnabled(requireActivity(), binding.listAppsSearchview)
+        }
+    }
+
+    /**
+     * Creates the adapter and the layout manager if needed, i.e. if any of the
+     * preferences they depend on changed. Returns true if they were created.
+     */
+    private fun updateLayout(): Boolean {
+        val host = host ?: return false
+
+        val favorites = host.favoritesVisibility == AppFilter.Companion.AppSetVisibility.EXCLUSIVE
         val colorTheme = LauncherPreferences.theme().colorTheme()
         val config = ListConfig(
-            layout = LauncherPreferences.list().layout(),
+            layout = if (favorites && LauncherPreferences.list().favoritesHideLabels()) {
+                ListLayout.GRID_ONLY_ICONS
+            } else {
+                LauncherPreferences.list().layout()
+            },
+            grid = GridSetting.load(favorites),
             reverseLayout = LauncherPreferences.list().reverseLayout(),
             nameFormat = LauncherPreferences.list().appNameFormat(),
             colorTheme = colorTheme,
@@ -232,7 +263,8 @@ class ListFragmentApps : Fragment(), UIObject {
                         hiddenVisibility = host.hiddenVisibility
                     ),
                     layout = config.layout,
-                    nameFormat = config.nameFormat
+                    nameFormat = config.nameFormat,
+                    grid = config.grid
                 )
 
             binding.listAppsRview.apply {
@@ -242,19 +274,36 @@ class ListFragmentApps : Fragment(), UIObject {
                             (it as? LinearLayoutManager)?.reverseLayout = true
                             (it as? GridLayoutManager)?.reverseLayout = true
                         }
+                        (it as? GridLayoutManager)?.let { grid ->
+                            config.grid.getValue(GridSetting.COLUMNS).takeIf { it > 0 }
+                                ?.let { grid.spanCount = it }
+                            // headings of categories take up a whole row
+                            grid.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+                                override fun getSpanSize(position: Int): Int {
+                                    return if (appsRecyclerAdapter.isHeader(position)) grid.spanCount else 1
+                                }
+                            }
+                        }
                     }
+                val margin = TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_DIP,
+                    if (config.layout.isGrid) config.grid.getValue(GridSetting.PADDING).toFloat() else 16f,
+                    resources.displayMetrics
+                ).toInt()
+                (layoutParams as ViewGroup.MarginLayoutParams).apply {
+                    leftMargin = margin
+                    rightMargin = margin
+                    marginStart = margin
+                    marginEnd = margin
+                }
+                requestLayout()
                 adapter = appsRecyclerAdapter
             }
             appsRecyclerAdapter.updateAppsList()
             appsListOutdated = false
-        } else if (appsListOutdated && host.isAppListShown) {
-            appsRecyclerAdapter.updateAppsList()
-            appsListOutdated = false
+            return true
         }
-
-        if (host.intention == AbstractListActivity.Companion.Intention.VIEW && host.isAppListShown) {
-            openKeyboardIfEnabled(requireActivity(), binding.listAppsSearchview)
-        }
+        return false
     }
 
     /**
@@ -286,7 +335,7 @@ class ListFragmentApps : Fragment(), UIObject {
         val visibilitiesChanged = appsRecyclerAdapter.setVisibilities(
             host.favoritesVisibility, host.hiddenVisibility, host.privateSpaceVisibility
         )
-        if (visibilitiesChanged || appsListOutdated) {
+        if (!updateLayout() && (visibilitiesChanged || appsListOutdated)) {
             appsRecyclerAdapter.updateAppsList()
             appsListOutdated = false
         }
