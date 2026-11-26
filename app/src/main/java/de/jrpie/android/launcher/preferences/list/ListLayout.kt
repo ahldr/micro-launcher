@@ -1,57 +1,61 @@
 package de.jrpie.android.launcher.preferences.list
 
+import android.content.Context
+import android.util.TypedValue
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import de.jrpie.android.launcher.R
 
 // TODO: move this to de.jrpie.android.launcher.ui.list.apps ?
-/**
- * How apps are shown in the app list.
- * Values are stored in preferences, see @array/settings_list_layout_values.
- */
 @Suppress("unused")
 enum class ListLayout(
+    val layoutManager: (context: Context) -> RecyclerView.LayoutManager,
+    val updateLayoutManager: (context: Context, layoutManager: RecyclerView.LayoutManager) -> Unit,
     val layoutResource: Int,
     val useBadgedText: Boolean,
-    /** Apps are shown in a grid, sized according to a [GridSpec]. */
-    val isGrid: Boolean,
-    val showsIcons: Boolean,
-    val showsLabels: Boolean,
-    /** Width of a column (in sp) if the number of columns is [GridSpec.AUTO]. */
-    val autoColumnWidth: Float = 0f,
 ) {
     DEFAULT(
+        { c -> LinearLayoutManager(c) },
+        { _, _ -> },
         R.layout.list_apps_row,
-        useBadgedText = false,
-        isGrid = false,
-        showsIcons = true,
-        showsLabels = true,
+        false
     ),
     TEXT(
+        { c -> LinearLayoutManager(c) },
+        { _, _ -> },
         R.layout.list_apps_row_variant_text,
-        useBadgedText = true,
-        isGrid = false,
-        showsIcons = false,
-        showsLabels = true,
+        true
     ),
     GRID(
+        { c ->
+            GridLayoutManager(c, getNumColumns(c))
+        },
+        { c, l ->
+            (l as? GridLayoutManager)?.spanCount = getNumColumns(c)
+        },
         R.layout.list_apps_row_variant_grid,
-        useBadgedText = false,
-        isGrid = true,
-        showsIcons = true,
-        showsLabels = true,
-        autoColumnWidth = 90f,
+        false
     ),
     GRID_ONLY_ICONS(
+        { c ->
+            GridLayoutManager(c, getNumColumns(c, 55f))
+        },
+        { c, l ->
+            (l as? GridLayoutManager)?.spanCount = getNumColumns(c, 55f)
+        },
         R.layout.list_apps_row_variant_grid_only_icons,
-        useBadgedText = false,
-        isGrid = true,
-        showsIcons = true,
-        showsLabels = false,
-        autoColumnWidth = 55f,
+        false
     ),
     ;
 
-    /** The grid layout that differs from this one only in whether labels are shown. */
-    fun withLabels(labels: Boolean): ListLayout {
-        return if (!isGrid) this else if (labels) GRID else GRID_ONLY_ICONS
-    }
+    val isGrid: Boolean
+        get() = this == GRID || this == GRID_ONLY_ICONS
+}
+
+private fun getNumColumns(context: Context, columnWidthSP: Float = 90f): Int {
+    val displayMetrics = context.resources.displayMetrics
+    val widthColumnPx =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, columnWidthSP, displayMetrics)
+    return (displayMetrics.widthPixels / widthColumnPx).toInt()
 }

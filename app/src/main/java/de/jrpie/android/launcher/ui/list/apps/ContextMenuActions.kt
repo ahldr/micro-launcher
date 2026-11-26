@@ -63,11 +63,6 @@ fun AbstractAppInfo.toggleFavorite() {
     if (favorites.contains(this)) {
         favorites.remove(this)
         Log.i(LOG_TAG, "Removing $this from favorites.")
-        // When it becomes a favorite again, it starts without a category.
-        val categories = LauncherPreferences.apps().favoriteCategories()
-        if (categories.categoryOf(this) != null) {
-            LauncherPreferences.apps().favoriteCategories(categories.assign(this, null))
-        }
     } else {
         Log.i(LOG_TAG, "Adding $this to favorites.")
         favorites.add(this)
@@ -117,3 +112,70 @@ fun AbstractDetailedAppInfo.showRenameDialog(context: Context) {
 }
 
 
+
+private fun updateCategories(update: (HashMap<AbstractAppInfo, String>) -> Unit) {
+    val categories = LauncherPreferences.apps().categories() ?: HashMap()
+    update(categories)
+    LauncherPreferences.apps().categories(categories)
+}
+
+/**
+ * Lets the user choose the category of a favorite app, or create a new one.
+ * Favorites are shown grouped by category.
+ */
+fun AbstractDetailedAppInfo.showCategoryDialog(context: Context) {
+    val app = getRawInfo()
+    val categories = LauncherPreferences.apps().categories() ?: HashMap()
+    val names = categories.values.distinct().sortedBy { it.lowercase() }
+    styledAlertDialogBuilder(context)
+        .setTitle(R.string.list_app_category)
+        .setSingleChoiceItems(
+            (listOf(context.getString(R.string.dialog_category_none)) + names).toTypedArray(),
+            names.indexOf(categories[app]) + 1
+        ) { dialog, which ->
+            updateCategories { if (which == 0) it.remove(app) else it[app] = names[which - 1] }
+            dialog.dismiss()
+        }
+        .setNeutralButton(R.string.dialog_category_new) { _, _ ->
+            showCategoryNameDialog(context, R.string.dialog_category_new, "") { name ->
+                updateCategories { it[app] = name }
+            }
+        }
+        .setNegativeButton(android.R.string.cancel, null)
+        .show()
+}
+
+/**
+ * Renames the category [name] or removes it (its apps stay favorites).
+ */
+fun showCategoryRenameDialog(context: Context, name: String) {
+    showCategoryNameDialog(context, R.string.list_app_rename, name, onRemove = {
+        updateCategories { categories -> categories.values.removeAll { it == name } }
+    }) { newName ->
+        updateCategories { categories ->
+            for (entry in categories.entries) {
+                if (entry.value == name) entry.setValue(newName)
+            }
+        }
+    }
+}
+
+private fun showCategoryNameDialog(
+    context: Context,
+    title: Int,
+    name: String,
+    onRemove: (() -> Unit)? = null,
+    onConfirm: (String) -> Unit
+) {
+    styledAlertDialogBuilder(context).apply {
+        setTitle(title)
+        setView(R.layout.dialog_rename_app)
+        setNegativeButton(android.R.string.cancel) { d, _ -> d.cancel() }
+        setPositiveButton(android.R.string.ok) { d, _ ->
+            (d as Dialog).findViewById<EditText>(R.id.dialog_rename_app_edit_text)
+                .text.toString().trim().takeIf { it.isNotEmpty() }?.let(onConfirm)
+        }
+        onRemove?.let { setNeutralButton(R.string.dialog_category_remove) { _, _ -> it() } }
+    }.create().also { it.show() }
+        .findViewById<EditText>(R.id.dialog_rename_app_edit_text)?.setText(name)
+}

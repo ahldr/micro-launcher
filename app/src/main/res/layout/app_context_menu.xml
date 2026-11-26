@@ -33,15 +33,13 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:src="@drawable/baseline_favorite_border_24"/>
-        <!-- only shown for favorites -->
         <ImageView
             android:id="@+id/app_menu_top_category"
             android:contentDescription="@string/list_app_category"
             android:layout_margin="5dp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:visibility="gone"
-            android:src="@drawable/baseline_label_outline_24"/>
+            android:src="@drawable/baseline_label_24"/>
         <ImageView
             android:id="@+id/app_menu_top_hide"
             android:contentDescription="@string/list_app_hidden_add"

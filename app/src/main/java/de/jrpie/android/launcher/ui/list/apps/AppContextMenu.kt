@@ -32,7 +32,7 @@ import de.jrpie.android.launcher.apps.loadShortcutBadgedIcon
 import de.jrpie.android.launcher.databinding.AppContextMenuBinding
 import de.jrpie.android.launcher.getAppShortcuts
 import de.jrpie.android.launcher.preferences.LauncherPreferences
-import de.jrpie.android.launcher.ui.categories.showCategoryPicker
+import de.jrpie.android.launcher.preferences.list.ListLayout
 import de.jrpie.android.launcher.ui.setTooltipAndContentDescription
 import de.jrpie.android.launcher.ui.transformMonochrome
 import de.jrpie.android.launcher.ui.settings.DialogBindToGesture
@@ -40,7 +40,6 @@ import de.jrpie.android.launcher.ui.settings.DialogBindToGesture
 /**
  * Context menu of an app, showing actions (rename, hide, ...) and the app's shortcuts.
  *
- * @param showIcons whether to show icons of shortcuts, i.e. whether the list shows app icons.
  * @param onPickShortcut if set, the menu is used to pick one of the app's shortcuts,
  *  e.g. to bind it to a gesture: only the shortcuts are shown
  *  and tapping one calls [onPickShortcut] instead of launching it.
@@ -48,7 +47,6 @@ import de.jrpie.android.launcher.ui.settings.DialogBindToGesture
 class AppContextMenu(
     val appInfo: AbstractDetailedAppInfo,
     val activity: AppCompatActivity,
-    private val showIcons: Boolean = LauncherPreferences.list().layout().showsIcons,
     private val onPickShortcut: ((ShortcutInfo) -> Unit)? = null
 ) : PopupWindow(activity) {
     var binding =
@@ -103,10 +101,8 @@ class AppContextMenu(
                 dismiss()
             }
         }
-        val isFavorite =
-            LauncherPreferences.apps().favorites()?.contains(appInfo.getRawInfo()) == true
         binding.appMenuTopFavorites.apply {
-            if (isFavorite) {
+            if (LauncherPreferences.apps().favorites()?.contains(appInfo.getRawInfo()) == true) {
                 setTooltipAndContentDescription(R.string.list_app_favorite_remove)
                 setImageDrawable(
                     ResourcesCompat.getDrawable(
@@ -125,24 +121,14 @@ class AppContextMenu(
             }
         }
 
-        // Categories group favorites, see [FavoriteCategories]
+        // only favorites are grouped by category
         binding.appMenuTopCategory.apply {
-            isVisible = isFavorite
             setTooltipAndContentDescription(R.string.list_app_category)
-            if (LauncherPreferences.apps().favoriteCategories()
-                    .categoryOf(appInfo.getRawInfo()) != null
-            ) {
-                setImageDrawable(
-                    ResourcesCompat.getDrawable(
-                        activity.resources,
-                        R.drawable.baseline_label_24,
-                        activity.theme
-                    )
-                )
-            }
+            isVisible =
+                LauncherPreferences.apps().favorites()?.contains(appInfo.getRawInfo()) == true
             setOnClickListener { _ ->
+                appInfo.showCategoryDialog(activity)
                 dismiss()
-                showCategoryPicker(activity, appInfo)
             }
         }
 
@@ -174,6 +160,7 @@ class AppContextMenu(
 
         val colorTheme = LauncherPreferences.theme().colorTheme()
         val grayscale = colorTheme.monochromeIcons()
+        val showIcons = LauncherPreferences.list().layout() != ListLayout.TEXT
 
         // shortcuts
         if (appInfo is DetailedAppInfo && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {

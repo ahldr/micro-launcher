@@ -187,8 +187,12 @@
             app:useSimpleSummaryProvider="true" />
         <Preference
             android:key="@string/settings_list_grid_key"
-            android:title="@string/settings_grid_customize"
-            android:summary="@string/settings_grid_customize_summary" />
+            android:title="@string/settings_list_grid"
+            android:summary="@string/settings_list_grid_summary" />
+        <Preference
+            android:key="@string/settings_list_grid_favorites_key"
+            android:title="@string/settings_list_grid_favorites"
+            android:summary="@string/settings_list_grid_favorites_summary" />
         <DropDownPreference
             android:key="list.app_name_format"
             android:title="@string/settings_list_app_name_format"
@@ -203,25 +207,6 @@
             android:defaultValue="false" />
 
 
-    </PreferenceCategory>
-    <PreferenceCategory
-        android:title="@string/settings_launcher_section_favorites"
-        app:allowDividerAbove="false">
-        <Preference
-            android:key="@string/settings_apps_favorite_categories_key"
-            android:title="@string/settings_favorites_categories"
-            android:summary="@string/settings_favorites_categories_summary" />
-        <DropDownPreference
-            android:key="@string/settings_favorites_layout_key"
-            android:title="@string/settings_favorites_layout"
-            android:entries="@array/settings_favorites_layout_items"
-            android:entryValues="@array/settings_favorites_layout_values"
-            android:defaultValue="SAME_AS_APP_LIST"
-            app:useSimpleSummaryProvider="true" />
-        <Preference
-            android:key="@string/settings_favorites_grid_key"
-            android:title="@string/settings_grid_customize"
-            android:summary="@string/settings_grid_customize_summary" />
     </PreferenceCategory>
     <PreferenceCategory
         android:title="@string/settings_launcher_section_widgets"

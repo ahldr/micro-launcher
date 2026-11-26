@@ -2,7 +2,6 @@ package de.jrpie.android.launcher.ui.list
 
 import android.os.Build
 import android.os.Bundle
-import android.view.View
 import android.view.WindowManager.LayoutParams.SOFT_INPUT_MASK_STATE
 import android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
 import android.window.OnBackInvokedDispatcher
@@ -10,8 +9,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import de.jrpie.android.launcher.Application
+import de.jrpie.android.launcher.apps.AppFilter.Companion.AppSetVisibility
 import de.jrpie.android.launcher.databinding.ActivityListBinding
 import de.jrpie.android.launcher.preferences.LauncherPreferences
+import de.jrpie.android.launcher.ui.list.apps.showGridDialog
 import kotlinx.coroutines.launch
 
 /**
@@ -28,8 +29,9 @@ class AppListActivity : AbstractListActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val gridDialog = intent.getBooleanExtra(KEY_GRID_DIALOG, false)
 
-        if (LauncherPreferences.functionality().searchAutoOpenKeyboard() && !customizeGrid) {
+        if (LauncherPreferences.functionality().searchAutoOpenKeyboard() && !gridDialog) {
             // Let the system show the keyboard as soon as this window gains focus.
             // Otherwise it only appears after SearchView has set up its input connection
             // and sent a show request of its own, one round trip later.
@@ -56,10 +58,9 @@ class AppListActivity : AbstractListActivity() {
 
         unlockPrivateSpaceIfExclusive(this, this)
         header = AppListHeader(this, binding, this) { finish() }
-        if (customizeGrid) {
-            // Leaving the preview for the settings would be confusing.
-            // Keep the space though, such that the title is where it usually is.
-            binding.listSettings.visibility = View.INVISIBLE
+
+        if (gridDialog && savedInstanceState == null) {
+            showGridDialog(this, favoritesVisibility == AppSetVisibility.EXCLUSIVE) { finish() }
         }
 
         val onThemeChanged = (this.applicationContext as Application).onThemeChanged

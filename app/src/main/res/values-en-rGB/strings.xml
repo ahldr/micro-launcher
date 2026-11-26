@@ -186,11 +186,5 @@
     <string name="list_tab_app">Apps</string>
     <string name="list_tab_other">Other</string>
     <string name="list_app_delete">Uninstall</string>
-    <string name="settings_grid_customize">Customise grid</string>
-    <string name="settings_launcher_section_favorites">Favourites</string>
-    <string name="settings_favorites_categories_summary">Group favourites under headings, e.g. Messaging</string>
-    <string name="settings_favorites_layout">Layout of favourites</string>
-    <string name="list_favorites_empty">No favourite apps yet.\nLong-press an app to add it.</string>
-    <string name="favorite_categories_empty">Group your favourite apps under headings.\nTap + to create a category, e.g. Messaging.</string>
-    <string name="dialog_category_apps_no_favorites">You have no favourite apps yet. Long-press an app in the app list to add it to your favourites.</string>
+    <string name="settings_list_grid_favorites">Grid of favourites</string>
 </resources>

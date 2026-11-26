@@ -25,14 +25,10 @@ sealed class AbstractListActivity : UIObjectActivity(), AppListHost {
     // TODO: only needed for [SelectActionActivity]
     override var forGesture: String? = null
 
-    // only used by [AppListActivity]
-    override var customizeGrid: Boolean = false
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         intent.extras?.let { bundle ->
-            customizeGrid = bundle.getBoolean(KEY_CUSTOMIZE_GRID, false)
             @Suppress("deprecation") // required to support API level < 33
             favoritesVisibility = bundle.getSerializable(KEY_FAVORITES_VISIBILITY)
                     as? AppFilter.Companion.AppSetVisibility ?: favoritesVisibility
@@ -51,7 +47,7 @@ sealed class AbstractListActivity : UIObjectActivity(), AppListHost {
         const val KEY_PRIVATE_SPACE_VISIBILITY = "privateSpaceVisibility"
         const val KEY_HIDDEN_VISIBILITY = "hiddenVisibility"
         const val KEY_FOR_GESTURE = "forGesture"
-        const val KEY_CUSTOMIZE_GRID = "customizeGrid"
+        const val KEY_GRID_DIALOG = "gridDialog"
 
         enum class Intention {
             VIEW, // used for [AppListActivity]

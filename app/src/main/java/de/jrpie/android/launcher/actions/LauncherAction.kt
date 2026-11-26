@@ -298,7 +298,9 @@ fun openAppsList(
     context: Context,
     favorite: Boolean = false,
     hidden: Boolean = false,
-    private: Boolean = false
+    private: Boolean = false,
+    // to customize the grid, see [showGridDialog]
+    gridDialog: Boolean = false,
 ) {
     val favoritesVisibility = if (favorite) {
         AppFilter.Companion.AppSetVisibility.EXCLUSIVE
@@ -329,6 +331,7 @@ fun openAppsList(
     intent.putExtra(AbstractListActivity.KEY_FAVORITES_VISIBILITY, favoritesVisibility)
     intent.putExtra(AbstractListActivity.KEY_HIDDEN_VISIBILITY, hiddenVisibility)
     intent.putExtra(AbstractListActivity.KEY_PRIVATE_SPACE_VISIBILITY, privateSpaceVisibility)
+    intent.putExtra(AbstractListActivity.KEY_GRID_DIALOG, gridDialog)
 
     context.startActivity(intent)
 }
